@@ -44,7 +44,7 @@ export default function ReportsPage() {
       <ReportCard title="Recommended focus">
         {weakTopics.length
           ? `Spend today's practice on ${weakTopics.join(", ")}.`
-          : "Start one lesson so RAV-AI can identify your weak areas."}
+          : "Start one lesson so Lumi can identify your weak areas."}
       </ReportCard>
 
       <ReportCard

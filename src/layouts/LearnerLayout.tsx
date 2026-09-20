@@ -63,7 +63,7 @@ export default function LearnerLayout() {
 
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-ink-950">
-      <Sidebar title="RAV-AI" items={NAV_ITEMS} tone="brand" />
+      <Sidebar title="Lumi" items={NAV_ITEMS} tone="brand" />
       <main className="flex-1 overflow-y-auto p-6">
         <Outlet />
       </main>

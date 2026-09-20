@@ -64,7 +64,7 @@ export default function OnboardingPage() {
         <div>
           <h1 className="text-xl font-bold text-slate-900 dark:text-ink-100">A few quick things</h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-ink-400">
-            Helps RAV-AI pick the right starting point for you. Nothing here is required.
+            Helps Lumi pick the right starting point for you. Nothing here is required.
           </p>
         </div>
 

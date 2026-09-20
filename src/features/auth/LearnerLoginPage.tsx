@@ -22,7 +22,7 @@ export default function LearnerLoginPage() {
       <div className="hidden flex-1 flex-col justify-between bg-gradient-to-br from-brand-600 to-brand-700 p-12 text-white lg:flex">
         <div className="flex items-center gap-2 text-lg font-bold">
           <SparklesIcon className="h-6 w-6" />
-          RAV-AI
+          Lumi
         </div>
         <div>
           <h2 className="mb-3 text-3xl font-bold leading-tight">
@@ -33,12 +33,12 @@ export default function LearnerLoginPage() {
             that works online or fully offline.
           </p>
         </div>
-        <p className="text-sm text-brand-100/70">© {new Date().getFullYear()} RAV-AI</p>
+        <p className="text-sm text-brand-100/70">© {new Date().getFullYear()} Lumi</p>
       </div>
 
       <div className="flex flex-1 items-center justify-center bg-slate-50 p-6">
         <AuthForm
-          title="Log in to RAV-AI"
+          title="Log in to Lumi"
           tone="primary"
           allowRegister
           onLogin={handleLogin}

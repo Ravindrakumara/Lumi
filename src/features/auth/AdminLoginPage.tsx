@@ -66,7 +66,7 @@ export default function AdminLoginPage() {
           />
         ) : (
           <AuthForm
-            title="RAV-AI Admin"
+            title="Lumi Admin"
             tone="admin"
             allowRegister={false}
             onLogin={handleLogin}

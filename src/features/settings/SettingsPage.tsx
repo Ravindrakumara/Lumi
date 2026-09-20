@@ -54,7 +54,7 @@ export default function SettingsPage() {
   return (
     <div className="max-w-xl space-y-4">
       <h2 className="text-xl font-bold text-slate-900 dark:text-ink-100">Settings</h2>
-      <p className="text-sm text-slate-500 dark:text-ink-400">Adjust how RAV-AI teaches you.</p>
+      <p className="text-sm text-slate-500 dark:text-ink-400">Adjust how Lumi teaches you.</p>
 
       {subscription ? (
         <Card>
