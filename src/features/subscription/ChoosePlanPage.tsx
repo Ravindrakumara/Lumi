@@ -35,7 +35,7 @@ export default function ChoosePlanPage() {
 
   const selectMutation = useMutation({
     mutationFn: (tierId: string) => subscriptionApi.selectPlan({ tier_id: tierId }),
-    onSuccess: (result, tierId) => {
+    onSuccess: (_result, tierId) => {
       queryClient.invalidateQueries({ queryKey: ["subscription"] });
       if (tierId === "free") {
         navigate("/", { replace: true });
