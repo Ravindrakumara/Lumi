@@ -19,17 +19,20 @@ export const lessonsApi = {
   detail: (lessonId: string): Promise<LessonDetail> =>
     client.get(`/lessons/${lessonId}`).then((r) => r.data.lesson),
 
-  start: (lessonId: string, userId = "web-user"): Promise<StartLessonResponse> =>
-    client.post(`/lessons/${lessonId}/start`, { user_id: userId }).then((r) => r.data),
+  // The backend derives the real user from the Authorization header (see
+  // web/server.py's get_current_claims) - it used to trust a client-sent
+  // user_id here, which every caller left at its "web-user" default, so
+  // every learner was silently sharing one global progress record.
+  start: (lessonId: string): Promise<StartLessonResponse> =>
+    client.post(`/lessons/${lessonId}/start`).then((r) => r.data),
 
   submit: (
     lessonId: string,
     exerciseId: string,
-    answer: string,
-    userId = "web-user"
+    answer: string
   ): Promise<SubmitExerciseResponse> =>
     client
-      .post(`/lessons/${lessonId}/submit`, { user_id: userId, exercise_id: exerciseId, answer })
+      .post(`/lessons/${lessonId}/submit`, { exercise_id: exerciseId, answer })
       .then((r) => r.data),
 
   vocabulary: (level = ""): Promise<VocabularyWord[]> =>

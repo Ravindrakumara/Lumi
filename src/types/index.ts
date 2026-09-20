@@ -39,6 +39,8 @@ export interface LessonSummary {
   duration_minutes: number;
   exercise_count: number;
   max_score: number;
+  is_locked: boolean;
+  locked_reason: string | null;
 }
 
 // Full shape returned by GET /api/lessons/:id.
