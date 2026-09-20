@@ -1,0 +1,99 @@
+import type { RouteObject } from "react-router-dom";
+import LearnerLayout from "../layouts/LearnerLayout";
+import AdminLayout from "../layouts/AdminLayout";
+import LearnerLoginPage from "../features/auth/LearnerLoginPage";
+import AdminLoginPage from "../features/auth/AdminLoginPage";
+import ChatPage from "../features/chat/ChatPage";
+import LessonsPage from "../features/lessons/LessonsPage";
+import LessonWorkbenchPage from "../features/lessons/LessonWorkbenchPage";
+import ProgressPage from "../features/progress/ProgressPage";
+import VocabularyPage from "../features/vocabulary/VocabularyPage";
+import AchievementsPage from "../features/achievements/AchievementsPage";
+import ReportsPage from "../features/reports/ReportsPage";
+import SettingsPage from "../features/settings/SettingsPage";
+import AdminIndexRedirect from "../features/admin/AdminIndexRedirect";
+import AdminContentUploadPage from "../features/admin/AdminContentUploadPage";
+import AdminUsersPage from "../features/admin/AdminUsersPage";
+import AdminLessonsPage from "../features/admin/AdminLessonsPage";
+import AdminAnalyticsPage from "../features/admin/AdminAnalyticsPage";
+import AdminSecurityPage from "../features/admin/AdminSecurityPage";
+import AdminAccountsPage from "../features/admin/AdminAccountsPage";
+import OnboardingPage from "../features/onboarding/OnboardingPage";
+import ChoosePlanPage from "../features/subscription/ChoosePlanPage";
+import InvoicesPage from "../features/invoices/InvoicesPage";
+import ProfilePage from "../features/profile/ProfilePage";
+import PronunciationPracticePage from "../features/pronunciation/PronunciationPracticePage";
+import VoiceModePage from "../features/voice/VoiceModePage";
+import ProtectedRoute from "./ProtectedRoute";
+
+export const routes: RouteObject[] = [
+  { path: "/login", element: <LearnerLoginPage /> },
+  { path: "/admin/login", element: <AdminLoginPage /> },
+
+  {
+    path: "/onboarding",
+    element: (
+      <ProtectedRoute>
+        <OnboardingPage />
+      </ProtectedRoute>
+    ),
+  },
+
+  {
+    path: "/choose-plan",
+    element: (
+      <ProtectedRoute>
+        <ChoosePlanPage />
+      </ProtectedRoute>
+    ),
+  },
+
+  {
+    path: "/voice",
+    element: (
+      <ProtectedRoute>
+        <VoiceModePage />
+      </ProtectedRoute>
+    ),
+  },
+
+  {
+    path: "/",
+    element: (
+      <ProtectedRoute>
+        <LearnerLayout />
+      </ProtectedRoute>
+    ),
+    children: [
+      { index: true, element: <ChatPage /> },
+      { path: "profile", element: <ProfilePage /> },
+      { path: "lessons", element: <LessonsPage /> },
+      { path: "pronunciation", element: <PronunciationPracticePage /> },
+      { path: "lessons/:lessonId", element: <LessonWorkbenchPage /> },
+      { path: "progress", element: <ProgressPage /> },
+      { path: "vocabulary", element: <VocabularyPage /> },
+      { path: "achievements", element: <AchievementsPage /> },
+      { path: "reports", element: <ReportsPage /> },
+      { path: "settings", element: <SettingsPage /> },
+      { path: "billing", element: <InvoicesPage /> },
+    ],
+  },
+
+  {
+    path: "/admin",
+    element: (
+      <ProtectedRoute requireAdmin>
+        <AdminLayout />
+      </ProtectedRoute>
+    ),
+    children: [
+      { index: true, element: <AdminIndexRedirect /> },
+      { path: "content", element: <AdminContentUploadPage /> },
+      { path: "users", element: <AdminUsersPage /> },
+      { path: "lessons", element: <AdminLessonsPage /> },
+      { path: "analytics", element: <AdminAnalyticsPage /> },
+      { path: "security", element: <AdminSecurityPage /> },
+      { path: "accounts", element: <AdminAccountsPage /> },
+    ],
+  },
+];
