@@ -3,10 +3,7 @@ import tailwindcss from '@tailwindcss/vite'
 import { defineConfig } from 'vite'
 
 // https://vite.dev/config/
-export default defineConfig(({ command }) => ({
-  // GitHub Pages serves this as a project site at /Lumi/, not the domain
-  // root, so built asset URLs need that prefix. Dev server stays at root.
-  base: command === 'build' ? '/Lumi/' : '/',
+export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     port: 5173,
@@ -20,4 +17,4 @@ export default defineConfig(({ command }) => ({
       },
     },
   },
-}))
+})
