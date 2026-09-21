@@ -1,5 +1,13 @@
 import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
-import { ArrowRightStartOnRectangleIcon, ChevronUpDownIcon, MoonIcon, SunIcon } from "@heroicons/react/20/solid";
+import {
+  ArrowRightStartOnRectangleIcon,
+  Bars3Icon,
+  ChevronUpDownIcon,
+  MoonIcon,
+  SunIcon,
+  XMarkIcon,
+} from "@heroicons/react/20/solid";
+import { useState } from "react";
 import Avatar from "../atoms/Avatar";
 import NavItem from "../molecules/NavItem";
 import { useAuth } from "../../hooks/useAuth";
@@ -21,16 +29,51 @@ interface SidebarProps {
 export default function Sidebar({ title, items, tone = "brand" }: SidebarProps) {
   const { user, logout } = useAuth();
   const { darkMode, setDarkMode } = useSettingsStore();
+  // Below the lg breakpoint the sidebar is an off-canvas drawer (see the
+  // aside's translate-x classes below) instead of a permanent column -
+  // there's no room for a fixed 256px rail next to content on a phone.
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <aside className="flex h-full w-64 flex-col border-r border-slate-200 bg-white p-4 dark:border-ink-700 dark:bg-ink-900">
-      <h1 className="mb-6 px-2 text-lg font-bold text-slate-900 dark:text-ink-100">{title}</h1>
+    <>
+      <button
+        onClick={() => setMobileOpen(true)}
+        className="fixed left-4 top-4 z-30 rounded-lg bg-white p-2 shadow-md dark:bg-ink-800 lg:hidden"
+        aria-label="Open menu"
+      >
+        <Bars3Icon className="h-6 w-6 text-slate-700 dark:text-ink-200" />
+      </button>
 
-      <nav className="flex flex-1 flex-col gap-1">
-        {items.map((item) => (
-          <NavItem key={item.to} {...item} tone={tone} />
-        ))}
-      </nav>
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+          onClick={() => setMobileOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 flex h-full w-64 flex-col border-r border-slate-200
+        bg-white p-4 transition-transform duration-200 ease-in-out dark:border-ink-700 dark:bg-ink-900
+        lg:static lg:translate-x-0
+        ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
+      >
+        <div className="mb-6 flex items-center justify-between px-2">
+          <h1 className="text-lg font-bold text-slate-900 dark:text-ink-100">{title}</h1>
+          <button
+            onClick={() => setMobileOpen(false)}
+            className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-ink-800 lg:hidden"
+            aria-label="Close menu"
+          >
+            <XMarkIcon className="h-5 w-5" />
+          </button>
+        </div>
+
+        <nav className="flex flex-1 flex-col gap-1" onClick={() => setMobileOpen(false)}>
+          {items.map((item) => (
+            <NavItem key={item.to} {...item} tone={tone} />
+          ))}
+        </nav>
 
       <button
         onClick={() => setDarkMode(!darkMode)}
@@ -67,6 +110,7 @@ export default function Sidebar({ title, items, tone = "brand" }: SidebarProps) 
           </MenuItems>
         </Menu>
       ) : null}
-    </aside>
+      </aside>
+    </>
   );
 }

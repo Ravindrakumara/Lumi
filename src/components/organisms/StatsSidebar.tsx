@@ -44,7 +44,7 @@ export default function StatsSidebar() {
   const topAchievements = (achievements || []).slice(0, 3);
 
   return (
-    <aside className="flex w-72 flex-col gap-4 border-l border-slate-200 bg-slate-50 p-4 dark:border-ink-700 dark:bg-ink-950">
+    <aside className="hidden w-72 flex-col gap-4 border-l border-slate-200 bg-slate-50 p-4 dark:border-ink-700 dark:bg-ink-950 xl:flex">
       <StatCard title="Your Progress" viewAllTo="/progress">
         <div className="grid grid-cols-3 gap-2">
           <StatTile value={level} label="Level" tone="info" />

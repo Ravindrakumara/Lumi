@@ -11,12 +11,12 @@ export default function ChatPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="mb-4 flex items-start justify-between gap-4">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div>
           <p className="text-lg font-semibold text-slate-900">Hello, {firstName}! 👋</p>
           <p className="text-sm text-slate-500">Let's practice and improve your English together.</p>
         </div>
-        <div className="w-56 shrink-0">
+        <div className="w-full sm:w-56 sm:shrink-0">
           <Select label="Module" value={agentName} onChange={setAgentName} options={AGENT_OPTIONS} />
         </div>
       </div>

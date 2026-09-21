@@ -33,7 +33,7 @@ export default function AdminLayout() {
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-ink-950">
       <Sidebar title="Lumi Admin" items={visibleItems} tone="admin" />
-      <main className="flex-1 overflow-y-auto p-6">
+      <main className="flex-1 overflow-y-auto p-4 pt-20 lg:p-6">
         <Outlet />
       </main>
     </div>
