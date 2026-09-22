@@ -294,6 +294,16 @@ export interface Invoice {
 
 // --- Adaptive Assessment Engine (see web/assessment_routes.py) --------
 
+// Mirrors infrastructure/voice/acoustic_features.py's AcousticFeatures.
+export interface AcousticFeatures {
+  pitch_hz: number | null;
+  pace_wpm: number | null;
+  pause_count: number;
+  pause_ratio: number;
+  voiced_ratio: number;
+  confidence: number;
+}
+
 export interface AssessmentTurn {
   role: "assistant" | "user";
   text: string;

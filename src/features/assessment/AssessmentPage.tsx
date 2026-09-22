@@ -1,13 +1,16 @@
+import { MicrophoneIcon, StopIcon } from "@heroicons/react/24/solid";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { assessmentApi } from "../../api/assessmentApi";
+import { speechApi } from "../../api/speechApi";
 import Badge from "../../components/atoms/Badge";
 import Button from "../../components/atoms/Button";
 import Input from "../../components/atoms/Input";
 import Spinner from "../../components/atoms/Spinner";
 import ChatBubble from "../../components/molecules/ChatBubble";
-import type { AssessmentResult, AssessmentTurn } from "../../types";
+import { useAudioRecorder } from "../../hooks/useAudioRecorder";
+import type { AcousticFeatures, AssessmentResult, AssessmentTurn } from "../../types";
 
 const DIMENSIONS: { key: keyof AssessmentResult; label: string }[] = [
   { key: "vocabulary", label: "Vocabulary" },
@@ -30,7 +33,17 @@ export default function AssessmentPage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [result, setResult] = useState<AssessmentResult | null>(null);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [voiceError, setVoiceError] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Deliberately not useServerSpeechInput (used elsewhere for chat) -
+  // that hook's onResult only ever hands back text, and AC-6 needs the
+  // raw acoustic measurement alongside it, so this calls
+  // speechApi.transcribeWithAcousticFeatures directly instead.
+  const { isRecording, start: startRecording, stop: stopRecording, isSupported } = useAudioRecorder({
+    onError: setVoiceError,
+  });
 
   const { isLoading } = useQuery({
     queryKey: ["assessment-start"],
@@ -43,7 +56,8 @@ export default function AssessmentPage() {
   });
 
   const respondMutation = useMutation({
-    mutationFn: (message: string) => assessmentApi.respond(sessionId!, message),
+    mutationFn: ({ message, acousticFeatures }: { message: string; acousticFeatures?: AcousticFeatures }) =>
+      assessmentApi.respond(sessionId!, message, acousticFeatures),
     onSuccess: (data) => {
       setTranscript((prev) => [...prev, { role: "assistant", text: data.reply }]);
       if (data.completed && data.result) {
@@ -66,7 +80,34 @@ export default function AssessmentPage() {
     if (!message || respondMutation.isPending) return;
     setTranscript((prev) => [...prev, { role: "user", text: message }]);
     setDraft("");
-    respondMutation.mutate(message);
+    respondMutation.mutate({ message });
+  }
+
+  async function handleMicClick() {
+    setVoiceError("");
+    if (isRecording) {
+      const recorded = await stopRecording();
+      if (!recorded) return;
+      setIsTranscribing(true);
+      try {
+        const { text, acousticFeatures } = await speechApi.transcribeWithAcousticFeatures(
+          recorded.blob,
+          recorded.mimeType
+        );
+        if (!text.trim()) {
+          setVoiceError("Could not understand audio. Please try again or type your message.");
+          return;
+        }
+        setTranscript((prev) => [...prev, { role: "user", text }]);
+        respondMutation.mutate({ message: text, acousticFeatures });
+      } catch {
+        setVoiceError("Could not transcribe audio. Please try again or type your message.");
+      } finally {
+        setIsTranscribing(false);
+      }
+    } else {
+      startRecording();
+    }
   }
 
   if (isLoading) {
@@ -134,12 +175,41 @@ export default function AssessmentPage() {
         {respondMutation.isPending ? <ChatBubble role="assistant" text="…" /> : null}
       </div>
 
+      {voiceError ? <p className="mt-2 text-xs text-red-600 dark:text-red-400">{voiceError}</p> : null}
+
       <form className="mt-3 flex items-center gap-2" onSubmit={handleSubmit}>
+        {isSupported ? (
+          <div className="relative">
+            {isRecording ? (
+              <span className="absolute inset-0 animate-ping rounded-lg bg-live-500 opacity-50" />
+            ) : null}
+            <Button
+              type="button"
+              variant={isRecording ? "danger" : "secondary"}
+              onClick={handleMicClick}
+              disabled={isTranscribing || respondMutation.isPending || !sessionId}
+              className="relative px-3"
+              title={
+                isTranscribing
+                  ? "Transcribing…"
+                  : "Speak your answer - pitch, pace and pauses are measured for your pronunciation score"
+              }
+            >
+              {isTranscribing ? (
+                <Spinner size={16} />
+              ) : isRecording ? (
+                <StopIcon className="h-4 w-4" />
+              ) : (
+                <MicrophoneIcon className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+        ) : null}
         <Input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder="Type your reply…"
-          disabled={respondMutation.isPending || !sessionId}
+          placeholder={isRecording ? "Listening…" : isTranscribing ? "Transcribing…" : "Type your reply…"}
+          disabled={respondMutation.isPending || !sessionId || isRecording || isTranscribing}
         />
         <Button type="submit" loading={respondMutation.isPending} className="px-4">
           Send
