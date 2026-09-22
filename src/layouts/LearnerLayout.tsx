@@ -33,11 +33,13 @@ const NAV_ITEMS: NavItemConfig[] = [
 
 export default function LearnerLayout() {
   // Every learner route goes through this layout, so this is the one place
-  // that needs to check "has this person finished onboarding yet" and
-  // "have they been through plan selection yet" - see
-  // features/onboarding/OnboardingPage.tsx and
-  // features/subscription/ChoosePlanPage.tsx (sibling top-level routes,
-  // not nested here, so neither re-triggers this check).
+  // that needs to check "has this person finished onboarding yet",
+  // "have they been through plan selection yet", and (US-02) "have they
+  // completed the adaptive assessment yet" - see
+  // features/onboarding/OnboardingPage.tsx,
+  // features/subscription/ChoosePlanPage.tsx, and
+  // features/assessment/AssessmentPage.tsx (sibling top-level routes,
+  // not nested here, so none of them re-trigger this same check).
   const { data: profile, isLoading: profileLoading } = useQuery({ queryKey: ["profile"], queryFn: profileApi.get });
   const { data: subscription, isLoading: subscriptionLoading } = useQuery({
     queryKey: ["subscription"],
@@ -59,6 +61,10 @@ export default function LearnerLayout() {
 
   if (subscription && !subscription.plan_selected) {
     return <Navigate to="/choose-plan" replace />;
+  }
+
+  if (profile && profile.onboarding_completed && !profile.cefr_level) {
+    return <Navigate to="/assessment" replace />;
   }
 
   return (

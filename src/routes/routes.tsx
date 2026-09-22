@@ -20,6 +20,7 @@ import AdminSecurityPage from "../features/admin/AdminSecurityPage";
 import AdminAccountsPage from "../features/admin/AdminAccountsPage";
 import OnboardingPage from "../features/onboarding/OnboardingPage";
 import ChoosePlanPage from "../features/subscription/ChoosePlanPage";
+import AssessmentPage from "../features/assessment/AssessmentPage";
 import InvoicesPage from "../features/invoices/InvoicesPage";
 import ProfilePage from "../features/profile/ProfilePage";
 import PronunciationPracticePage from "../features/pronunciation/PronunciationPracticePage";
@@ -44,6 +45,15 @@ export const routes: RouteObject[] = [
     element: (
       <ProtectedRoute>
         <ChoosePlanPage />
+      </ProtectedRoute>
+    ),
+  },
+
+  {
+    path: "/assessment",
+    element: (
+      <ProtectedRoute>
+        <AssessmentPage />
       </ProtectedRoute>
     ),
   },

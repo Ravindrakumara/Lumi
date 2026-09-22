@@ -198,6 +198,10 @@ export interface Profile {
   preferred_voice: string;
   timezone: string;
   onboarding_completed: boolean;
+  // Set by the Adaptive Assessment Engine, null until the first
+  // assessment completes - LearnerLayout uses this to gate the
+  // dashboard behind /assessment, same as onboarding_completed.
+  cefr_level: string | null;
   total_exercises_completed: number;
   total_sessions: number;
   total_learning_hours: number;
@@ -286,4 +290,42 @@ export interface Invoice {
   status: InvoiceStatus;
   issued_at: string;
   paid_at: string | null;
+}
+
+// --- Adaptive Assessment Engine (see web/assessment_routes.py) --------
+
+export interface AssessmentTurn {
+  role: "assistant" | "user";
+  text: string;
+}
+
+export interface AssessmentSessionState {
+  id: string;
+  status: "in_progress" | "completed" | "abandoned";
+  transcript: AssessmentTurn[];
+  started_at: string;
+  last_activity_at: string;
+}
+
+export interface DimensionScore {
+  score: number | null; // null only for pronunciation when not assessed
+  evidence: string;
+}
+
+export interface AssessmentResult {
+  cefr_level: string;
+  vocabulary: DimensionScore;
+  sentence_complexity: DimensionScore;
+  grammar_accuracy: DimensionScore;
+  fluency_hesitation: DimensionScore;
+  pronunciation: DimensionScore;
+  low_confidence: boolean;
+  capped_at_max: boolean;
+}
+
+export interface AssessmentRespondResponse {
+  session_id: string;
+  reply: string;
+  completed: boolean;
+  result: AssessmentResult | null;
 }

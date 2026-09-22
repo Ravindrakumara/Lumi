@@ -5,6 +5,7 @@ import { profileApi } from "../../api/profileApi";
 import { subscriptionApi } from "../../api/subscriptionApi";
 import { voiceApi } from "../../api/voiceApi";
 import Badge from "../../components/atoms/Badge";
+import Button from "../../components/atoms/Button";
 import Card from "../../components/atoms/Card";
 import Select, { type SelectOption } from "../../components/atoms/Select";
 import ProgressBar from "../../components/molecules/ProgressBar";
@@ -81,6 +82,23 @@ export default function SettingsPage() {
           </p>
           <Link to="/billing" className="mt-3 inline-block text-sm font-medium text-live-600 hover:underline dark:text-live-500">
             View invoices &rarr;
+          </Link>
+        </Card>
+      ) : null}
+
+      {profile?.cefr_level ? (
+        <Card>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-slate-800 dark:text-ink-100">English level</p>
+              <p className="text-xs text-slate-500 dark:text-ink-400">
+                From your adaptive assessment - retake it any time to track your progress.
+              </p>
+            </div>
+            <Badge tone="brand">{profile.cefr_level}</Badge>
+          </div>
+          <Link to="/assessment" className="mt-3 inline-block">
+            <Button variant="secondary">Retake assessment</Button>
           </Link>
         </Card>
       ) : null}
