@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { speechApi } from "../api/speechApi";
 import { useVoiceActivityDetection } from "./useVoiceActivityDetection";
+import type { AcousticFeatures } from "../types";
 
 export type VoiceConversationPhase = "idle" | "listening" | "transcribing" | "responding";
 
@@ -9,9 +10,16 @@ interface UseVoiceConversationOptions {
    * listening again - the caller is expected to send it to the chat AND
    * wait for the spoken reply to finish playing (see ChatWindow.tsx's
    * sendAndWaitForReply), so the mic doesn't reopen while the assistant
-   * is still talking and pick up its own voice. */
-  onUtterance: (text: string) => Promise<void>;
+   * is still talking and pick up its own voice.
+   * acousticFeatures is only populated when includeAcousticFeatures is
+   * set - existing callers (ChatWindow's voice mode) get undefined and
+   * can ignore the second argument entirely. */
+  onUtterance: (text: string, acousticFeatures?: AcousticFeatures) => Promise<void>;
   onError?: (message: string) => void;
+  /** Adds pitch/pace/pause measurement to each transcription (US-02's
+   * AC-6) - opt-in since it's extra server-side work only the assessment
+   * page needs; general chat/voice-mode leave this unset. */
+  includeAcousticFeatures?: boolean;
 }
 
 /** Hands-free voice mode: holds one open microphone stream for the whole
@@ -20,7 +28,11 @@ interface UseVoiceConversationOptions {
  * different mode from useServerSpeechInput's single push-to-talk turn
  * (manual start/stop per utterance) - ChatWindow toggles between the two
  * rather than running both at once. */
-export function useVoiceConversation({ onUtterance, onError }: UseVoiceConversationOptions) {
+export function useVoiceConversation({
+  onUtterance,
+  onError,
+  includeAcousticFeatures,
+}: UseVoiceConversationOptions) {
   const [isActive, setIsActive] = useState(false);
   const [phase, setPhase] = useState<VoiceConversationPhase>("idle");
 
@@ -76,11 +88,13 @@ export function useVoiceConversation({ onUtterance, onError }: UseVoiceConversat
 
         setPhase("transcribing");
         try {
-          const text = await speechApi.transcribe(blob, mimeType);
+          const { text, acousticFeatures } = includeAcousticFeatures
+            ? await speechApi.transcribeWithAcousticFeatures(blob, mimeType)
+            : { text: await speechApi.transcribe(blob, mimeType), acousticFeatures: undefined };
           if (!activeRef.current) return;
           if (text.trim()) {
             setPhase("responding");
-            await onUtterance(text);
+            await onUtterance(text, acousticFeatures);
           }
         } catch {
           onError?.("Could not transcribe that - still listening.");
@@ -97,7 +111,7 @@ export function useVoiceConversation({ onUtterance, onError }: UseVoiceConversat
         if (recorder.state !== "inactive") recorder.stop();
       },
     });
-  }, [onUtterance, onError, vad]);
+  }, [onUtterance, onError, vad, includeAcousticFeatures]);
 
   const startConversation = useCallback(async () => {
     if (!navigator.mediaDevices?.getUserMedia) {
