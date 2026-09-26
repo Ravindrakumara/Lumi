@@ -2,6 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { progressApi } from "../../api/progressApi";
 import Badge from "../../components/atoms/Badge";
 import Card from "../../components/atoms/Card";
+import PageHeader from "../../components/atoms/PageHeader";
+import { JourneySnapshot } from "../../components/organisms/StatsSidebar";
 import Spinner from "../../components/atoms/Spinner";
 import ProgressBar from "../../components/molecules/ProgressBar";
 
@@ -17,8 +19,14 @@ export default function ProgressPage() {
   const { summary, lessons, recommendations } = data;
 
   return (
-    <div className="space-y-6">
-      <h2 className="text-xl font-bold text-slate-900 dark:text-ink-100">Progress</h2>
+    <div className="space-y-5">
+      <PageHeader title="Progress" subtitle="Every lesson you've started, and how far you've got." />
+
+      {/* On lg+ these already sit in the right sidebar; below that the
+          sidebar is hidden, and this is the only way to reach them. */}
+      <div className="lg:hidden">
+        <JourneySnapshot />
+      </div>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {(
@@ -30,8 +38,10 @@ export default function ProgressPage() {
           ] as [string, string | number][]
         ).map(([label, value]) => (
           <Card key={label} className="text-center">
-            <p className="text-2xl font-bold text-brand-600">{value}</p>
-            <p className="text-xs text-slate-500 dark:text-ink-400">{label}</p>
+            <p className="font-display text-[22px] font-extrabold text-ink-900 dark:text-ink-100">{value}</p>
+            <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-ink-400">
+              {label}
+            </p>
           </Card>
         ))}
       </div>

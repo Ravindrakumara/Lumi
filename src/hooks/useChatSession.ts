@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { chatApi } from "../api/chatApi";
 import { useChatStore } from "../store/chatStore";
 import { useSettingsStore } from "../store/settingsStore";
@@ -8,9 +8,16 @@ import { useVoicePlayback } from "./useVoicePlayback";
 
 interface UseChatSessionOptions {
   /** Fired when the daily chat quota (not voice quota) is hit - the
-   * caller decides what that means for it (e.g. VoiceModePage stops its
-   * conversation loop, ChatWindow just shows the upgrade banner). */
+   * caller decides what that means for it (e.g. stopping the voice loop,
+   * or just showing the upgrade banner). */
   onQuotaExceeded?: () => void;
+  /** Asked at reply time whether to speak this reply aloud. A callback,
+   * not a boolean, so it always reflects the live mode: the caller flips
+   * into voice mode in the same render that the hook runs, and a plain
+   * value would be read one render stale. True only for the hands-free
+   * voice loop; typing should never be talked at unprompted - text mode
+   * offers a speaker button per message instead. */
+  shouldSpeak?: () => boolean;
 }
 
 /** One conversation, shared by the typed-chat screen and the dedicated
@@ -18,7 +25,7 @@ interface UseChatSessionOptions {
  * message sent from either surface shows up in both, and so the
  * send/quota/speak logic exists in exactly one place instead of being
  * duplicated per screen. */
-export function useChatSession({ onQuotaExceeded }: UseChatSessionOptions = {}) {
+export function useChatSession({ onQuotaExceeded, shouldSpeak }: UseChatSessionOptions = {}) {
   const messages = useChatStore((s) => s.messages);
   const quotaExceeded = useChatStore((s) => s.quotaExceeded);
   const addMessage = useChatStore((s) => s.addMessage);
@@ -31,7 +38,12 @@ export function useChatSession({ onQuotaExceeded }: UseChatSessionOptions = {}) 
   // is still talking (it would just transcribe its own voice).
   const turnCompleteResolverRef = useRef<(() => void) | null>(null);
 
-  const { speak } = useVoicePlayback({
+  const shouldSpeakRef = useRef(shouldSpeak);
+  useEffect(() => {
+    shouldSpeakRef.current = shouldSpeak;
+  }, [shouldSpeak]);
+
+  const { speak, stop: stopSpeaking, isSpeaking } = useVoicePlayback({
     onQuotaExceeded: (message) => {
       addMessage({ role: "assistant", text: `🔒 ${message}` });
     },
@@ -40,8 +52,10 @@ export function useChatSession({ onQuotaExceeded }: UseChatSessionOptions = {}) 
   const sendMutation = useMutation({
     mutationFn: (text: string) => chatApi.send(text, "default", agentName),
     onSuccess: async (responseText) => {
-      addMessage({ role: "assistant", text: responseText.replace(/\n/g, "<br/>") });
-      await speak(responseText);
+      // Stored as the model's raw Markdown - ChatBubble escapes and
+      // renders it, so nothing here needs to pre-mangle line breaks.
+      addMessage({ role: "assistant", text: responseText });
+      if (shouldSpeakRef.current?.()) await speak(responseText);
       turnCompleteResolverRef.current?.();
       turnCompleteResolverRef.current = null;
     },
@@ -83,5 +97,9 @@ export function useChatSession({ onQuotaExceeded }: UseChatSessionOptions = {}) 
     isPending: sendMutation.isPending,
     send,
     sendAndWaitForReply,
+    /** On-demand playback for the per-message speaker button. */
+    speak,
+    stopSpeaking,
+    isSpeaking,
   };
 }

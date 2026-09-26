@@ -28,7 +28,7 @@ interface SettingsState {
 export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
-      voiceName: "guy",
+      voiceName: "ryan",
       voiceMode: "auto",
       darkMode: false,
       agentName: "",

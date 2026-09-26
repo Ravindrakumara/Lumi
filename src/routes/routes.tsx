@@ -1,4 +1,4 @@
-import type { RouteObject } from "react-router-dom";
+import { Navigate, type RouteObject } from "react-router-dom";
 import LearnerLayout from "../layouts/LearnerLayout";
 import AdminLayout from "../layouts/AdminLayout";
 import LearnerLoginPage from "../features/auth/LearnerLoginPage";
@@ -24,7 +24,6 @@ import AssessmentPage from "../features/assessment/AssessmentPage";
 import InvoicesPage from "../features/invoices/InvoicesPage";
 import ProfilePage from "../features/profile/ProfilePage";
 import PronunciationPracticePage from "../features/pronunciation/PronunciationPracticePage";
-import VoiceModePage from "../features/voice/VoiceModePage";
 import ProtectedRoute from "./ProtectedRoute";
 
 export const routes: RouteObject[] = [
@@ -58,14 +57,11 @@ export const routes: RouteObject[] = [
     ),
   },
 
-  {
-    path: "/voice",
-    element: (
-      <ProtectedRoute>
-        <VoiceModePage />
-      </ProtectedRoute>
-    ),
-  },
+  // The old dedicated full-screen voice page is gone - the hands-free
+  // conversation now runs inline on the chat orb (ChatWindow.tsx), so
+  // there's nothing to navigate away to. Kept as a redirect so any old
+  // bookmark still lands somewhere sensible.
+  { path: "/voice", element: <Navigate to="/" replace /> },
 
   {
     path: "/",

@@ -16,7 +16,18 @@ interface VadOptions {
   /** Ignore speech blips shorter than this (a cough, a click) so they
    * don't immediately arm the silence timer. */
   minSpeechDurationMs?: number;
+  /** Fired every animation frame with loudness normalised to 0-1, for
+   * driving audio-reactive visuals (the orb). The RMS is measured here
+   * regardless; this just stops throwing it away. Deliberately a callback
+   * rather than React state - at 60fps setState would re-render the whole
+   * chat tree every frame. */
+  onLevel?: (level: number) => void;
 }
+
+/** RMS value treated as "full scale" for the 0-1 level. Normal speech sits
+ * well under this; it's picked so an ordinary talking voice uses most of
+ * the range without constantly clipping at 1. */
+const LEVEL_FULL_SCALE = 45;
 
 /** Detects "the user has stopped talking" from a live MediaStream via the
  * Web Audio API, so a voice conversation loop knows when to stop
@@ -51,6 +62,7 @@ export function useVoiceActivityDetection() {
         speechThreshold = 12,
         silenceDurationMs = 1400,
         minSpeechDurationMs = 250,
+        onLevel,
       } = options;
 
       stop();
@@ -84,6 +96,8 @@ export function useVoiceActivityDetection() {
         const rms = Math.sqrt(sumSquares / data.length);
         const now = performance.now();
 
+        onLevel?.(Math.min(1, rms / LEVEL_FULL_SCALE));
+
         if (rms > speechThreshold) {
           if (!hasSpoken) {
             hasSpoken = true;
@@ -95,6 +109,7 @@ export function useVoiceActivityDetection() {
             silenceStartedAt = now;
           } else if (now - silenceStartedAt > silenceDurationMs) {
             stop();
+            onLevel?.(0);
             onSilenceAfterSpeech();
             return;
           }

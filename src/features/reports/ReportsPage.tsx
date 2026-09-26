@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { progressApi } from "../../api/progressApi";
 import Button from "../../components/atoms/Button";
 import Card from "../../components/atoms/Card";
+import PageHeader from "../../components/atoms/PageHeader";
 import Spinner from "../../components/atoms/Spinner";
 
 function ReportCard({
@@ -37,9 +38,8 @@ export default function ReportsPage() {
   const weakTopics = recommendations?.weak_topics || [];
 
   return (
-    <div className="max-w-2xl space-y-4">
-      <h2 className="text-xl font-bold text-slate-900 dark:text-ink-100">Reports</h2>
-      <p className="text-sm text-slate-500 dark:text-ink-400">Learning focus and next-step recommendations.</p>
+    <div className="max-w-2xl space-y-5">
+      <PageHeader title="Reports" subtitle="Learning focus and next-step recommendations." />
 
       <ReportCard title="Recommended focus">
         {weakTopics.length

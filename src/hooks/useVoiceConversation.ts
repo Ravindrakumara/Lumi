@@ -39,6 +39,10 @@ export function useVoiceConversation({
   const activeRef = useRef(false);
   const streamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
+  // Live mic loudness, 0-1, updated every frame by the VAD. A ref, not
+  // state, so audio-reactive visuals can read it at 60fps without
+  // re-rendering anything (see Orb's levelRef).
+  const levelRef = useRef(0);
   const vad = useVoiceActivityDetection();
 
   const releaseStream = useCallback(() => {
@@ -57,6 +61,7 @@ export function useVoiceConversation({
 
   const stopConversation = useCallback(() => {
     activeRef.current = false;
+    levelRef.current = 0;
     setIsActive(false);
     setPhase("idle");
     releaseStream();
@@ -86,6 +91,7 @@ export function useVoiceConversation({
           return;
         }
 
+        levelRef.current = 0;
         setPhase("transcribing");
         try {
           const { text, acousticFeatures } = includeAcousticFeatures
@@ -109,6 +115,9 @@ export function useVoiceConversation({
     vad.start(stream, {
       onSilenceAfterSpeech: () => {
         if (recorder.state !== "inactive") recorder.stop();
+      },
+      onLevel: (level) => {
+        levelRef.current = level;
       },
     });
   }, [onUtterance, onError, vad, includeAcousticFeatures]);
@@ -145,6 +154,7 @@ export function useVoiceConversation({
   return {
     isActive,
     phase,
+    levelRef,
     startConversation,
     stopConversation,
     isSupported: Boolean(navigator.mediaDevices?.getUserMedia),

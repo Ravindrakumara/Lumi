@@ -4,6 +4,7 @@ import { invoiceApi } from "../../api/invoiceApi";
 import Badge from "../../components/atoms/Badge";
 import Button from "../../components/atoms/Button";
 import Card from "../../components/atoms/Card";
+import PageHeader from "../../components/atoms/PageHeader";
 import Spinner from "../../components/atoms/Spinner";
 import { formatCents, invoiceStatusLabel, invoiceStatusTone } from "./format";
 import InvoicePreviewDialog from "./InvoicePreviewDialog";
@@ -13,13 +14,11 @@ export default function InvoicesPage() {
   const [previewingId, setPreviewingId] = useState<string | null>(null);
 
   return (
-    <div className="max-w-2xl space-y-4">
-      <div>
-        <h2 className="text-xl font-bold text-slate-900 dark:text-ink-100">Billing</h2>
-        <p className="text-sm text-slate-500 dark:text-ink-400">
-          One invoice per billed month. New invoices appear automatically after each month ends.
-        </p>
-      </div>
+    <div className="max-w-2xl space-y-5">
+      <PageHeader
+        title="Billing"
+        subtitle="One invoice per billed month. New invoices appear automatically after each month ends."
+      />
 
       {isLoading ? (
         <Spinner />

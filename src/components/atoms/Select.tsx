@@ -30,16 +30,22 @@ export default function Select({ value, onChange, options, label, disabled }: Se
             <ChevronUpDownIcon className="h-4 w-4 text-slate-400" />
           </span>
         </ListboxButton>
+        {/* anchor portals the panel to the body so it can't be clipped by
+            an ancestor's overflow - several of the surfaces this Select
+            sits on (the chat hero, the pronunciation stage) hide overflow
+            to keep their artwork inside rounded corners, which silently
+            cut the list in half. */}
         <ListboxOptions
           transition
-          className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-lg bg-white py-1 text-sm shadow-lg ring-1 ring-black/5 focus:outline-none
-            transition duration-100 ease-in data-closed:opacity-0"
+          anchor="bottom start"
+          className="z-50 max-h-60 w-[var(--button-width)] overflow-auto rounded-lg bg-white py-1 text-sm shadow-lg ring-1 ring-black/5 focus:outline-none
+            transition duration-100 ease-in [--anchor-gap:4px] data-closed:opacity-0 dark:bg-ink-800 dark:ring-white/10"
         >
           {options.map((option) => (
             <ListboxOption
               key={option.value}
               value={option.value}
-              className="relative cursor-pointer select-none py-2 pl-9 pr-3 text-slate-700 data-focus:bg-brand-50 data-focus:text-brand-700"
+              className="relative cursor-pointer select-none py-2 pl-9 pr-3 text-slate-700 data-focus:bg-brand-50 data-focus:text-brand-700 dark:text-ink-100 dark:data-focus:bg-ink-700"
             >
               <span className="block truncate data-selected:font-semibold">{option.label}</span>
               <span className="absolute inset-y-0 left-0 hidden items-center pl-3 text-brand-600 data-selected:flex">

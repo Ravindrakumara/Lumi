@@ -1,13 +1,9 @@
 import { useMutation } from "@tanstack/react-query";
-import { MicrophoneIcon, StopIcon } from "@heroicons/react/24/solid";
 import { useEffect, useRef, useState } from "react";
 import { analysisApi } from "../../api/analysisApi";
-import Badge from "../../components/atoms/Badge";
-import Button from "../../components/atoms/Button";
-import Card from "../../components/atoms/Card";
+import Orb from "../../components/atoms/Orb";
+import PageHeader from "../../components/atoms/PageHeader";
 import Select from "../../components/atoms/Select";
-import Spinner from "../../components/atoms/Spinner";
-import StatTile from "../../components/atoms/StatTile";
 import { useAudioRecorder } from "../../hooks/useAudioRecorder";
 import type { PronunciationResult } from "../../types";
 
@@ -26,6 +22,50 @@ const MIME_EXTENSIONS: Record<string, string> = {
   "audio/wav": "wav",
 };
 
+function ScoreRing({ score }: { score: number }) {
+  const size = 92;
+  const stroke = 5;
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference * (1 - Math.min(1, Math.max(0, score / 100)));
+
+  return (
+    <div className="relative shrink-0" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="-rotate-90">
+        <circle cx={size / 2} cy={size / 2} r={radius} strokeWidth={stroke} className="fill-none stroke-slate-100 dark:stroke-ink-800" />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          className="fill-none stroke-live-500 transition-[stroke-dashoffset] duration-700 ease-out"
+        />
+      </svg>
+      <span className="absolute inset-0 flex items-center justify-center font-display text-[24px] font-extrabold text-ink-900 dark:text-ink-100">
+        {Math.round(score)}
+      </span>
+    </div>
+  );
+}
+
+function AccuracyBar({ label, pct }: { label: string; pct: number }) {
+  const clamped = Math.min(100, Math.max(0, pct));
+  return (
+    <div>
+      <div className="mb-1.5 flex justify-between text-[12.5px]">
+        <span className="font-semibold text-slate-700 dark:text-ink-100">{label}</span>
+        <span className="font-bold text-live-600 dark:text-live-500">{Math.round(clamped)}%</span>
+      </div>
+      <div className="h-[9px] overflow-hidden rounded-[5px] bg-slate-100 dark:bg-ink-800">
+        <div className="h-full rounded-[5px] bg-live-500 transition-all duration-700" style={{ width: `${clamped}%` }} />
+      </div>
+    </div>
+  );
+}
+
 function useElapsedSeconds(active: boolean) {
   const [seconds, setSeconds] = useState(0);
   const startRef = useRef<number>(0);
@@ -43,133 +83,159 @@ function useElapsedSeconds(active: boolean) {
   return seconds;
 }
 
+/** One flow, not a dashboard: choose a sentence, tap the orb, get a score.
+ * The orb is the control here exactly as it is in chat - the assistant
+ * should behave the same way wherever it appears. */
 export default function PronunciationPracticePage() {
   const [expectedText, setExpectedText] = useState(PRACTICE_SENTENCES[0]);
   const [recordingError, setRecordingError] = useState("");
-  const [recordedAudio, setRecordedAudio] = useState<{ blob: Blob; mimeType: string } | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [changingSentence, setChangingSentence] = useState(false);
+  // Hearing your own attempt back is most of the value of pronunciation
+  // practice - the score alone doesn't tell you what you actually said.
+  const [playbackUrl, setPlaybackUrl] = useState<string | null>(null);
 
   const { isRecording, start, stop, isSupported } = useAudioRecorder({ onError: setRecordingError });
 
   const analyzeMutation = useMutation({
-    mutationFn: () => {
-      if (!recordedAudio) throw new Error("No recording to analyze.");
-      const ext = MIME_EXTENSIONS[recordedAudio.mimeType.split(";")[0]] || "webm";
-      return analysisApi.analyzePronunciation(recordedAudio.blob, `recording.${ext}`, expectedText);
+    mutationFn: ({ blob, mimeType }: { blob: Blob; mimeType: string }) => {
+      const ext = MIME_EXTENSIONS[mimeType.split(";")[0]] || "webm";
+      return analysisApi.analyzePronunciation(blob, `recording.${ext}`, expectedText);
     },
   });
 
   const elapsed = useElapsedSeconds(analyzeMutation.isPending);
 
-  async function handleStopRecording() {
-    const result = await stop();
-    if (result) {
-      setRecordedAudio(result);
-      setPreviewUrl(URL.createObjectURL(result.blob));
+  // Tapping the orb a second time ends the take and scores it straight
+  // away - the old separate "Analyze" button was a step that never had a
+  // reason to exist.
+  async function handleOrbTap() {
+    if (analyzeMutation.isPending) return;
+    if (!isRecording) {
+      setRecordingError("");
+      analyzeMutation.reset();
+      setPlaybackUrl((old) => {
+        if (old) URL.revokeObjectURL(old);
+        return null;
+      });
+      start();
+      return;
+    }
+    const recorded = await stop();
+    if (recorded) {
+      setPlaybackUrl(URL.createObjectURL(recorded.blob));
+      analyzeMutation.mutate(recorded);
     }
   }
 
+  useEffect(() => {
+    return () => {
+      if (playbackUrl) URL.revokeObjectURL(playbackUrl);
+    };
+  }, [playbackUrl]);
+
   const result = analyzeMutation.data as PronunciationResult | undefined;
+  const orbState = isRecording ? "listening" : analyzeMutation.isPending ? "thinking" : "idle";
+  const status = isRecording
+    ? "Listening — say the sentence above"
+    : analyzeMutation.isPending
+      ? `Scoring your pronunciation — ${elapsed}s`
+      : result
+        ? "Tap to try it again"
+        : "Tap the orb, then say the sentence";
 
   return (
-    <div className="max-w-2xl space-y-4">
-      <div>
-        <h2 className="text-xl font-bold text-slate-900 dark:text-ink-100">Pronunciation Practice</h2>
-        <p className="text-sm text-slate-500 dark:text-ink-400">
-          Real acoustic pronunciation scoring - phoneme-level, not a language model's guess.
-        </p>
-      </div>
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-5">
+      <PageHeader
+        title="Let's hear you say it"
+        subtitle="Real acoustic scoring — phoneme by phoneme, not a language model's guess."
+      />
 
-      <Card>
-        <Select
-          label="Sentence to practice"
-          value={expectedText}
-          onChange={setExpectedText}
-          options={PRACTICE_SENTENCES.map((s) => ({ value: s, label: s }))}
-        />
-
-        <div className="mt-4 flex items-center gap-3">
-          {isSupported ? (
-            <Button
-              type="button"
-              variant={isRecording ? "danger" : "primary"}
-              onClick={() => (isRecording ? handleStopRecording() : start())}
-            >
-              {isRecording ? <StopIcon className="h-4 w-4" /> : <MicrophoneIcon className="h-4 w-4" />}
-              {isRecording ? "Stop recording" : "Start recording"}
-            </Button>
+      <div className="flex flex-col items-center gap-5 overflow-hidden rounded-[24px] border border-[#16224a] bg-[radial-gradient(ellipse_80%_60%_at_50%_26%,#16255c,#050a1c_70%)] px-6 py-8">
+        <div className="w-full max-w-md text-center">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-[#6b7ea8]">Sentence to practice</p>
+          {changingSentence ? (
+            <div className="mt-2 text-left">
+              <Select
+                value={expectedText}
+                onChange={(value) => {
+                  setExpectedText(value);
+                  setChangingSentence(false);
+                  analyzeMutation.reset();
+                }}
+                options={PRACTICE_SENTENCES.map((s) => ({ value: s, label: s }))}
+              />
+            </div>
           ) : (
-            <p className="text-sm text-red-600">Microphone recording is not supported in this browser.</p>
+            <>
+              <p className="mt-1.5 font-display text-[19px] font-extrabold text-white">{expectedText}</p>
+              <button
+                type="button"
+                onClick={() => setChangingSentence(true)}
+                disabled={isRecording || analyzeMutation.isPending}
+                className="mt-1.5 text-[11.5px] font-semibold text-[#7fa2e8] hover:underline disabled:opacity-40"
+              >
+                Change sentence
+              </button>
+            </>
           )}
-
-          {previewUrl ? <audio controls src={previewUrl} className="h-9" /> : null}
         </div>
 
-        {recordingError ? <p className="mt-2 text-sm text-red-600">{recordingError}</p> : null}
-
-        {recordedAudio ? (
-          <Button
-            className="mt-4"
-            onClick={() => analyzeMutation.mutate()}
-            loading={analyzeMutation.isPending}
-            disabled={analyzeMutation.isPending}
+        {isSupported ? (
+          <button
+            type="button"
+            onClick={handleOrbTap}
+            aria-pressed={isRecording}
+            className="orb-btn"
+            title={isRecording ? "Stop and score" : "Tap to record"}
           >
-            Analyze pronunciation
-          </Button>
+            <Orb size={132} state={orbState} label={status} />
+          </button>
+        ) : (
+          <p className="text-sm text-red-300">Microphone recording is not supported in this browser.</p>
+        )}
+
+        <p className="text-[13px] font-semibold text-[#93a9d8]">{status}</p>
+        {recordingError ? <p className="text-xs text-red-300">{recordingError}</p> : null}
+        {analyzeMutation.isError ? (
+          <p className="text-xs text-red-300">Scoring failed — tap the orb to try again.</p>
         ) : null}
-      </Card>
-
-      {analyzeMutation.isPending ? (
-        <Card className="flex items-center gap-3">
-          <Spinner size={24} />
-          <div>
-            <p className="text-sm font-medium text-slate-800 dark:text-ink-100">
-              Analyzing your pronunciation — {elapsed}s elapsed
-            </p>
-            <p className="text-xs text-slate-500 dark:text-ink-400">
-              This runs real acoustic analysis on our server and can genuinely take a few minutes.
-              Please don't close this page.
-            </p>
-          </div>
-        </Card>
-      ) : null}
-
-      {analyzeMutation.isError ? (
-        <p className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300">
-          Analysis failed. Please try again.
-        </p>
-      ) : null}
+      </div>
 
       {result ? (
-        <div className="space-y-4">
-          <div className="grid grid-cols-3 gap-3">
-            <StatTile
-              value={`${result.score.toFixed(0)}`}
-              label="Score"
-              tone={result.score >= 70 ? "success" : result.score >= 40 ? "warning" : "neutral"}
-              percent={result.score}
-            />
-            <StatTile
-              value={`${(result.differences.word_error_rate * 100).toFixed(0)}%`}
-              label="Word error rate"
-              tone="info"
-            />
-            <StatTile
-              value={`${(result.differences.phoneme_error_rate * 100).toFixed(0)}%`}
-              label="Phoneme error rate"
-              tone="highlight"
-            />
+        <div className="rounded-[24px] border border-slate-200 bg-white p-6 dark:border-ink-700 dark:bg-ink-900">
+          <div className="flex items-center gap-5">
+            <ScoreRing score={result.score} />
+            <div>
+              <div className="font-display text-[17px] font-extrabold text-ink-900 dark:text-ink-100">
+                Pronunciation score
+              </div>
+              <div className="text-[13px] text-slate-500 dark:text-ink-400">
+                Out of 100, from the word and sound accuracy below.
+              </div>
+            </div>
           </div>
 
-          <Card>
-            <p className="mb-2 whitespace-pre-line text-sm text-slate-700 dark:text-ink-100">
+          <div className="mt-6 space-y-4">
+            <AccuracyBar label="Word accuracy" pct={(1 - result.differences.word_error_rate) * 100} />
+            <AccuracyBar label="Sound (phoneme) accuracy" pct={(1 - result.differences.phoneme_error_rate) * 100} />
+          </div>
+
+          <div className="mt-6 border-t border-slate-100 pt-5 dark:border-ink-800">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <span className="text-[13px] font-bold text-ink-900 dark:text-ink-100">What we heard</span>
+              {playbackUrl ? (
+                <audio controls src={playbackUrl} className="h-8 max-w-[240px]">
+                  <track kind="captions" />
+                </audio>
+              ) : null}
+            </div>
+            <p className="rounded-[10px] border border-slate-200 px-3.5 py-3 text-sm italic text-slate-500 dark:border-ink-700 dark:text-ink-400">
+              "{result.differences.transcribe}"
+            </p>
+            <p className="mt-4 whitespace-pre-line text-sm leading-relaxed text-slate-700 dark:text-ink-100">
               {result.differences.feedback}
             </p>
-            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-ink-400">
-              <Badge tone="brand">Heard</Badge>
-              <span>{result.differences.transcribe}</span>
-            </div>
-          </Card>
+          </div>
         </div>
       ) : null}
     </div>

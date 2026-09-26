@@ -68,7 +68,7 @@ export default function LearnerLayout() {
   }
 
   return (
-    <div className="flex h-screen bg-slate-50 dark:bg-ink-950">
+    <div className="flex h-screen bg-cream dark:bg-ink-950">
       <Sidebar title="Lumi" items={NAV_ITEMS} tone="brand" />
       <main className="flex-1 overflow-y-auto p-4 pt-20 lg:p-6">
         <Outlet />

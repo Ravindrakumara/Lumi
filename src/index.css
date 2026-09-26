@@ -25,6 +25,15 @@
   --color-ink-100: #e8e8ea;
   --color-live-500: #ff6a45;
   --color-live-600: #e6532f;
+
+  /* Warm off-white app background for the learner-facing redesign (the
+     "RAV-AI - Redesigned Frontend" mockup) - sits behind white cards
+     instead of the earlier neutral slate-50, everywhere brand-500/
+     live-500 already matched the mockup's palette exactly. */
+  --color-cream: #faf7f2;
+
+  --font-display: "Bricolage Grotesque", "Atkinson Hyperlegible", -apple-system, sans-serif;
+  --font-sans: "Atkinson Hyperlegible", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
 }
 
 html,
@@ -34,7 +43,311 @@ body,
 }
 
 body {
-  @apply bg-slate-50 text-slate-900 antialiased dark:bg-ink-950 dark:text-ink-100;
+  @apply bg-slate-50 font-sans text-slate-900 antialiased dark:bg-ink-950 dark:text-ink-100;
+}
+
+h1,
+h2,
+h3,
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+/* --- Orb: the redesign's signature animated AI-assistant avatar --------
+   A dark sphere with a luminous band orbiting it in 3D, soft silk wisps
+   drifting inside, and a bloom halo - modelled on the motion reference
+   rather than the flat rotating gradient the static mockup specified.
+   Recoloured to the app's blue/orange theme.
+
+   Driven by two custom properties Orb.tsx sets: --orb-size, and
+   --orb-level (0-1 live microphone loudness), which scales the sphere,
+   brightens the bloom and speeds the orbit. Everything else is CSS. */
+:root {
+  --orb-core-1: #12275a;
+  --orb-core-2: #061229;
+  --orb-core-3: #01040c;
+  --orb-ring: #6aa6ff;
+  --orb-ring-hot: #ffffff;
+  --orb-silk: #4a86e8;
+  --orb-warm: #9c6bd6;
+}
+.orb {
+  --orb-size: 44px;
+  --orb-level: 0;
+  --orb-glow-alpha: 0.32;
+  --orb-reach: 0.16;
+  --orb-orbit-duration: 7s;
+  --orb-silk-duration: 16s;
+  --orb-ring-opacity: 0.95;
+  position: relative;
+  width: var(--orb-size);
+  height: var(--orb-size);
+  flex: none;
+  border-radius: 9999px;
+  /* Live loudness swells the whole orb. */
+  transform: scale(calc(1 + var(--orb-level) * var(--orb-reach)));
+  transition: transform 90ms linear;
+}
+.orb__breathe {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  animation: orb-breathe 5s ease-in-out infinite;
+  /* Bloom: tightens to a bright core and spreads a soft halo, both
+     intensified by the speaker's voice. */
+  box-shadow:
+    0 0 calc(var(--orb-size) * 0.3) rgba(106, 166, 255, calc(var(--orb-glow-alpha) + var(--orb-level) * 0.5)),
+    0 0 calc(var(--orb-size) * 0.6) rgba(59, 111, 237, calc(var(--orb-glow-alpha) * 0.55 + var(--orb-level) * 0.3));
+  transition: box-shadow 400ms ease-out;
+}
+.orb__pulse {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 2px solid var(--orb-ring);
+  opacity: 0;
+  pointer-events: none;
+}
+/* Only the listening state runs them, so "armed and hearing you" can
+   never be confused with the idle drift. */
+.orb[data-state="listening"] .orb__pulse {
+  animation: orb-sonar 1.5s cubic-bezier(0.22, 0.61, 0.36, 1) infinite;
+}
+.orb[data-state="listening"] .orb__pulse:nth-of-type(2) {
+  animation-delay: 0.5s;
+}
+.orb[data-state="listening"] .orb__pulse:nth-of-type(3) {
+  animation-delay: 1s;
+}
+.orb__clip {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  overflow: hidden;
+  isolation: isolate;
+}
+/* The sphere itself: lit from upper-left, falling away to near-black, with
+   a bright rim so it reads as a lit ball rather than a flat disc. */
+.orb__base {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background:
+    radial-gradient(circle at 34% 26%, var(--orb-core-1), var(--orb-core-2) 46%, var(--orb-core-3) 82%);
+  box-shadow:
+    inset 0 0 calc(var(--orb-size) * 0.05) rgba(150, 200, 255, 0.5),
+    inset 0 0 calc(var(--orb-size) * 0.16) rgba(106, 166, 255, 0.3),
+    inset calc(var(--orb-size) * -0.05) calc(var(--orb-size) * -0.06) calc(var(--orb-size) * 0.24) rgba(1, 4, 12, 0.95);
+}
+/* Two counter-drifting blurred gradients read as silk/aurora suspended
+   inside the glass. Screen blend keeps them additive over the dark core. */
+.orb__silk {
+  position: absolute;
+  inset: -18%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    var(--orb-silk) 55deg,
+    transparent 130deg,
+    var(--orb-warm) 190deg,
+    transparent 250deg,
+    var(--orb-silk) 310deg,
+    transparent 360deg
+  );
+  mix-blend-mode: screen;
+  filter: blur(calc(var(--orb-size) * 0.1));
+  opacity: 0.22;
+  -webkit-mask: radial-gradient(circle at 50% 62%, #000 10%, rgba(0, 0, 0, 0.45) 45%, transparent 72%);
+  mask: radial-gradient(circle at 50% 62%, #000 10%, rgba(0, 0, 0, 0.45) 45%, transparent 72%);
+  animation: orb-spin var(--orb-silk-duration) linear infinite;
+  transition: opacity 400ms ease-out;
+}
+.orb__silk--b {
+  inset: -8%;
+  filter: blur(calc(var(--orb-size) * 0.06));
+  opacity: 0.16;
+  animation-direction: reverse;
+  animation-duration: calc(var(--orb-silk-duration) * 0.62);
+}
+/* The signature element: a luminous band circling the sphere. The ring is
+   flattened on X so it reads as an orbit in perspective, and only part of
+   its circumference is lit, so it looks like it is sweeping around. */
+.orb__orbit {
+  position: absolute;
+  inset: 2%;
+  border-radius: 9999px;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    rgba(106, 166, 255, 0.08) 16deg,
+    var(--orb-ring) 46deg,
+    var(--orb-ring-hot) 66deg,
+    var(--orb-ring-hot) 78deg,
+    var(--orb-ring) 100deg,
+    rgba(106, 166, 255, 0.08) 145deg,
+    transparent 195deg,
+    transparent 360deg
+  );
+  /* Hollow it out into a band rather than a filled disc. */
+  -webkit-mask: radial-gradient(circle, transparent 0 66%, #000 70%, #000 93%, transparent 97%);
+  mask: radial-gradient(circle, transparent 0 66%, #000 70%, #000 93%, transparent 97%);
+  opacity: var(--orb-ring-opacity);
+  filter: blur(calc(var(--orb-size) * 0.006))
+    drop-shadow(0 0 calc(var(--orb-size) * 0.05) rgba(150, 200, 255, 0.95))
+    drop-shadow(0 0 calc(var(--orb-size) * 0.14) rgba(59, 111, 237, 0.7));
+  transform: rotateX(66deg) rotate(0turn);
+  animation: orb-orbit var(--orb-orbit-duration) linear infinite;
+}
+/* A second band on a different tilt and speed stops the motion reading as
+   one repeating loop. */
+.orb__orbit--b {
+  inset: 9%;
+  transform: rotateX(-58deg) rotate(0turn);
+  animation-name: orb-orbit-b;
+  animation-duration: calc(var(--orb-orbit-duration) * 1.55);
+  animation-direction: reverse;
+  opacity: calc(var(--orb-ring-opacity) * 0.55);
+}
+/* Specular glint riding the front of the orbit. */
+.orb__highlight {
+  position: absolute;
+  left: 16%;
+  top: 12%;
+  width: 38%;
+  height: 30%;
+  border-radius: 9999px;
+  background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.7), rgba(150, 195, 255, 0.2) 45%, transparent 70%);
+  opacity: 0.22;
+  filter: blur(calc(var(--orb-size) * 0.03));
+}
+
+/* --- states ------------------------------------------------------------
+   Matched to the reference: calm when idle, quicker and brighter when
+   listening, contracted and racing while thinking, wide and luminous
+   while speaking. */
+.orb[data-state="idle"] {
+  --orb-glow-alpha: 0.24;
+  --orb-orbit-duration: 9s;
+  --orb-ring-opacity: 0.8;
+}
+.orb[data-state="listening"] {
+  --orb-glow-alpha: 0.6;
+  --orb-orbit-duration: 2.2s;
+  --orb-silk-duration: 9s;
+  --orb-ring-opacity: 1;
+  --orb-reach: 0.22;
+}
+.orb[data-state="listening"] .orb__breathe {
+  animation-duration: 1.6s;
+}
+.orb[data-state="thinking"] {
+  --orb-glow-alpha: 0.3;
+  --orb-orbit-duration: 1.7s;
+  --orb-silk-duration: 7s;
+  --orb-ring-opacity: 0.9;
+  /* Draws in on itself while it works - straight from the reference. */
+  transform: scale(0.88);
+}
+.orb[data-state="thinking"] .orb__silk {
+  opacity: 0.34;
+}
+.orb[data-state="speaking"] {
+  --orb-glow-alpha: 0.55;
+  --orb-orbit-duration: 3.4s;
+  --orb-reach: 0.1;
+  --orb-ring-opacity: 1;
+  transform: scale(calc(1.04 + var(--orb-level) * var(--orb-reach)));
+}
+.orb[data-state="speaking"] .orb__silk {
+  opacity: 0.32;
+}
+
+/* Ripples were mockup decoration that nothing ever triggers - removed
+   rather than left as dead markup. */
+.orb-btn {
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  padding: 0;
+  display: block;
+  border-radius: 9999px;
+  transition: transform 140ms ease-out;
+}
+/* The orb is the primary control in chat and pronunciation, so it has to
+   actually read as a button: it lifts on hover, presses in on click, and
+   shows a real focus ring for keyboard users. */
+.orb-btn:hover:not(:disabled) {
+  transform: scale(1.06);
+}
+.orb-btn:active:not(:disabled) {
+  transform: scale(0.96);
+}
+.orb-btn:focus-visible {
+  outline: 3px solid var(--color-brand-500);
+  outline-offset: 4px;
+}
+.orb-btn:disabled {
+  cursor: not-allowed;
+}
+@media (prefers-reduced-motion: reduce) {
+  .orb-btn:hover:not(:disabled),
+  .orb-btn:active:not(:disabled) {
+    transform: none;
+  }
+}
+@keyframes orb-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.035);
+  }
+}
+@keyframes orb-spin {
+  from {
+    transform: rotate(0turn);
+  }
+  to {
+    transform: rotate(1turn);
+  }
+}
+@keyframes orb-orbit {
+  from {
+    transform: rotateX(66deg) rotate(0turn);
+  }
+  to {
+    transform: rotateX(66deg) rotate(1turn);
+  }
+}
+@keyframes orb-sonar {
+  0% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  70% {
+    opacity: 0;
+    transform: scale(1.85);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.85);
+  }
+}
+@keyframes orb-orbit-b {
+  from {
+    transform: rotateX(-58deg) rotate(0turn);
+  }
+  to {
+    transform: rotateX(-58deg) rotate(1turn);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .orb,
+  .orb * {
+    animation: none !important;
+  }
 }
 
 /* Invoice printing (see InvoicePreviewDialog) - hides everything except

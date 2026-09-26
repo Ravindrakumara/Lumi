@@ -9,14 +9,22 @@ function initials(name = ""): string {
   );
 }
 
+const TONES = {
+  brand: "bg-brand-500",
+  admin: "bg-admin-500",
+  // For avatars sitting ON the brand-blue sidebar, where a blue circle
+  // would disappear into the background.
+  accent: "bg-live-500",
+} as const;
+
 interface AvatarProps {
   name?: string;
-  tone?: "brand" | "admin";
+  tone?: keyof typeof TONES;
   size?: number;
 }
 
 export default function Avatar({ name, tone = "brand", size = 36 }: AvatarProps) {
-  const bg = tone === "admin" ? "bg-admin-500" : "bg-brand-500";
+  const bg = TONES[tone];
   return (
     <span
       className={`inline-flex items-center justify-center rounded-full font-semibold text-white ${bg}`}

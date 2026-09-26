@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { CheckCircleIcon, MinusCircleIcon, PlayCircleIcon } from "@heroicons/react/20/solid";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { lessonsApi } from "../../api/lessonsApi";
 import Badge from "../../components/atoms/Badge";
@@ -38,6 +38,9 @@ export default function LessonWorkbenchPage() {
     enabled: Boolean(lessonId),
   });
 
+  const [startError, setStartError] = useState(false);
+  const autoStartedRef = useRef(false);
+
   const startMutation = useMutation({
     mutationFn: () => lessonsApi.start(lessonId!),
     onSuccess: (data) => {
@@ -45,7 +48,19 @@ export default function LessonWorkbenchPage() {
       setExercise(data.exercise);
       setFeedback(null);
     },
+    onError: () => setStartError(true),
   });
+
+  // Opening the lesson IS starting it - the card the learner clicked
+  // already said "Start lesson", so asking again on arrival was a step
+  // that only added a click.
+  const startLesson = startMutation.mutate;
+  useEffect(() => {
+    if (lesson && !progress && !autoStartedRef.current) {
+      autoStartedRef.current = true;
+      startLesson();
+    }
+  }, [lesson, progress, startLesson]);
 
   const submitMutation = useMutation({
     mutationFn: (submittedAnswer: string) => lessonsApi.submit(lessonId!, exercise!.id, submittedAnswer),
@@ -66,12 +81,27 @@ export default function LessonWorkbenchPage() {
 
   if (!progress) {
     return (
-      <div className="mx-auto max-w-lg text-center">
-        <h2 className="text-xl font-bold text-slate-900 dark:text-ink-100">{lesson.title}</h2>
-        <p className="mb-4 text-sm text-slate-600 dark:text-ink-400">{lesson.description}</p>
-        <Button onClick={() => startMutation.mutate()} loading={startMutation.isPending}>
-          Start lesson
-        </Button>
+      <div className="mx-auto flex max-w-xl flex-col items-center gap-4 px-8 py-16 text-center">
+        {startError ? (
+          <>
+            <p className="text-sm text-red-600">Couldn't open this lesson.</p>
+            <button
+              type="button"
+              onClick={() => {
+                setStartError(false);
+                startMutation.mutate();
+              }}
+              className="rounded-full bg-brand-500 px-7 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-brand-600"
+            >
+              Try again
+            </button>
+          </>
+        ) : (
+          <>
+            <Spinner size={26} />
+            <p className="text-sm text-slate-500 dark:text-ink-400">Opening {lesson.title}…</p>
+          </>
+        )}
       </div>
     );
   }
@@ -86,7 +116,10 @@ export default function LessonWorkbenchPage() {
   return (
     <div className="flex h-full flex-col">
       <div className="mb-4">
-        <h2 className="text-xl font-bold text-slate-900 dark:text-ink-100">{lesson.title}</h2>
+        <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-ink-400">
+          Focus mode &middot; exit anytime from the sidebar
+        </p>
+        <h2 className="font-display text-xl font-extrabold text-ink-900 dark:text-ink-100">{lesson.title}</h2>
         <p className="text-sm text-slate-500 dark:text-ink-400">{lesson.description}</p>
       </div>
 
@@ -147,7 +180,7 @@ export default function LessonWorkbenchPage() {
                 {viewedStep.exercise.question}
               </p>
               <div
-                className={`rounded-lg p-3 text-sm ${viewedStep.result.is_correct ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400" : "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400"}`}
+                className={`whitespace-pre-line rounded-xl p-4 text-sm leading-relaxed ${viewedStep.result.is_correct ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400" : "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400"}`}
               >
                 {viewedStep.result.feedback}
               </div>
@@ -156,7 +189,7 @@ export default function LessonWorkbenchPage() {
             <>
           {feedback ? (
             <div
-              className={`rounded-lg p-3 text-sm ${feedback.is_correct ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400" : "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400"}`}
+              className={`whitespace-pre-line rounded-xl p-4 text-sm leading-relaxed ${feedback.is_correct ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400" : "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400"}`}
             >
               {feedback.feedback}
             </div>
@@ -261,7 +294,7 @@ export default function LessonWorkbenchPage() {
       <div className="mt-4 flex items-center gap-3 rounded-2xl border border-slate-200 bg-white shadow-sm dark:shadow-none px-4 py-2 dark:border-ink-700 dark:bg-ink-900">
         <span className="text-xs font-medium text-slate-500 dark:text-ink-400">Lesson progress</span>
         <div className="h-1.5 flex-1 rounded-full bg-slate-100 dark:bg-ink-800">
-          <div className="h-1.5 rounded-full bg-live-500 transition-all" style={{ width: `${lessonPct}%` }} />
+          <div className="h-1.5 rounded-full bg-brand-500 transition-all" style={{ width: `${lessonPct}%` }} />
         </div>
         <span className="text-xs text-slate-500 dark:text-ink-400">{lessonPct}%</span>
       </div>
