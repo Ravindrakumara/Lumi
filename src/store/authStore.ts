@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { adoptLegacyKey } from "./adoptLegacyKey";
 import type { AuthResponse, User } from "../types";
 
 interface AuthState {
@@ -14,6 +15,9 @@ interface AuthState {
 // Persisted to localStorage: only the token + the user object the server
 // already returned - never anything else. Real data (progress, lessons,
 // content) always comes from the server.
+const AUTH_STORAGE_KEY = "lumi-auth";
+adoptLegacyKey("rav-ai-auth", AUTH_STORAGE_KEY);
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -26,6 +30,6 @@ export const useAuthStore = create<AuthState>()(
       setSession: ({ token, user }) => set({ token, user }),
       logout: () => set({ token: null, user: null }),
     }),
-    { name: "rav-ai-auth" }
+    { name: AUTH_STORAGE_KEY }
   )
 );

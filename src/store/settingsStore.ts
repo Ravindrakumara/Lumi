@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { adoptLegacyKey } from "./adoptLegacyKey";
 import type { VoiceMode } from "../types";
 
 interface SettingsState {
@@ -25,6 +26,9 @@ interface SettingsState {
   syncLessonLevelOwner: (ownerId: string, recommendedLevel: string) => void;
 }
 
+const SETTINGS_STORAGE_KEY = "lumi-settings";
+adoptLegacyKey("rav-ai-settings", SETTINGS_STORAGE_KEY);
+
 export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
@@ -46,6 +50,6 @@ export const useSettingsStore = create<SettingsState>()(
           state.lessonLevelOwnerId === ownerId ? {} : { lessonLevel: recommendedLevel, lessonLevelOwnerId: ownerId }
         ),
     }),
-    { name: "rav-ai-settings" }
+    { name: SETTINGS_STORAGE_KEY }
   )
 );
