@@ -1,18 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { adminLessonsApi } from "../../api/adminLessonsApi";
+import { adminLessonsApi, type AdminLessonSummary } from "../../api/adminLessonsApi";
 import Badge from "../../components/atoms/Badge";
 import Button from "../../components/atoms/Button";
 import Spinner from "../../components/atoms/Spinner";
 import AdminDataTable, { type Column } from "../../components/organisms/AdminDataTable";
-import type { LessonSummary } from "../../types";
 import CreateLessonDialog from "./CreateLessonDialog";
+import EditLessonDialog from "./EditLessonDialog";
 import LessonMaterialDialog from "./LessonMaterialDialog";
 
 export default function AdminLessonsPage() {
   const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
-  const [materialLesson, setMaterialLesson] = useState<LessonSummary | null>(null);
+  const [materialLesson, setMaterialLesson] = useState<AdminLessonSummary | null>(null);
+  const [editLesson, setEditLesson] = useState<AdminLessonSummary | null>(null);
 
   const { data: lessons, isLoading } = useQuery({
     queryKey: ["admin", "lessons"],
@@ -24,9 +25,36 @@ export default function AdminLessonsPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin", "lessons"] }),
   });
 
-  const columns: Column<LessonSummary>[] = [
+  const columns: Column<AdminLessonSummary>[] = [
+    {
+      key: "sequence",
+      label: "Seq",
+      // Curriculum position - what decides which lesson a learner is handed
+      // next. Blank means the lesson has no place in the order yet, so it is
+      // reachable from the catalogue but never offered as the next step.
+      render: (row) =>
+        row.sequence == null ? (
+          <span className="text-slate-400 dark:text-ink-400">—</span>
+        ) : (
+          <span className="font-mono text-[13px] tabular-nums text-slate-600 dark:text-ink-300">
+            {row.sequence}
+          </span>
+        ),
+    },
     { key: "title", label: "Title" },
-    { key: "level", label: "Level", render: (row) => <Badge tone="brand">{row.level}</Badge> },
+    {
+      key: "cefr_level",
+      label: "CEFR",
+      // Blank is the common case and means the lesson is open to every
+      // learner - shown as a dash rather than an empty cell so it reads as
+      // a deliberate "untagged" rather than missing data.
+      render: (row) =>
+        row.cefr_level ? (
+          <Badge tone="neutral">{row.cefr_level}</Badge>
+        ) : (
+          <span className="text-slate-400 dark:text-ink-400">—</span>
+        ),
+    },
     { key: "topic", label: "Topic" },
     { key: "exercise_count", label: "Exercises" },
     {
@@ -34,6 +62,9 @@ export default function AdminLessonsPage() {
       label: "",
       render: (row) => (
         <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={() => setEditLesson(row)}>
+            Edit
+          </Button>
           <Button variant="secondary" onClick={() => setMaterialLesson(row)}>
             Manage material
           </Button>
@@ -75,6 +106,7 @@ export default function AdminLessonsPage() {
       )}
 
       <CreateLessonDialog open={createOpen} onClose={() => setCreateOpen(false)} />
+      <EditLessonDialog lesson={editLesson} onClose={() => setEditLesson(null)} />
       <LessonMaterialDialog
         lessonId={materialLesson?.id ?? null}
         lessonTitle={materialLesson?.title ?? ""}

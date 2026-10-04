@@ -60,7 +60,12 @@ export function useVoiceActivityDetection() {
       const {
         onSilenceAfterSpeech,
         speechThreshold = 12,
-        silenceDurationMs = 1400,
+        // 1400ms cut learners off mid-sentence: a natural pause while
+        // searching for a word is routinely 2s and more for a beginner,
+        // so the turn ended while they were still speaking and the reply
+        // arrived on half a sentence. Erring long costs a moment of dead
+        // air; erring short loses what the learner was saying.
+        silenceDurationMs = 2600,
         minSpeechDurationMs = 250,
         onLevel,
       } = options;

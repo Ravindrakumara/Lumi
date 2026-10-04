@@ -8,29 +8,16 @@ import Badge from "../../components/atoms/Badge";
 import Button from "../../components/atoms/Button";
 import Card from "../../components/atoms/Card";
 import PageHeader from "../../components/atoms/PageHeader";
-import Select, { type SelectOption } from "../../components/atoms/Select";
 import ProgressBar from "../../components/molecules/ProgressBar";
 import VoiceSelector from "../../components/molecules/VoiceSelector";
-import { AGENT_OPTIONS } from "../../constants/agents";
 import { useSettingsStore } from "../../store/settingsStore";
-
-const LEVEL_OPTIONS: SelectOption[] = [
-  { value: "secondary", label: "Secondary" },
-  { value: "primary", label: "Primary" },
-  { value: "college", label: "College" },
-  { value: "professional", label: "Professional" },
-];
 
 export default function SettingsPage() {
   const {
     voiceName,
     voiceMode,
-    agentName,
-    lessonLevel,
     setVoiceName,
     setVoiceMode,
-    setAgentName,
-    setLessonLevel,
     syncLessonLevelOwner,
   } = useSettingsStore();
 
@@ -124,17 +111,6 @@ export default function SettingsPage() {
           </Link>
         </Card>
       ) : null}
-
-      <Card padding="lg" className="space-y-4">
-        <Select label="Default module" value={agentName} onChange={setAgentName} options={AGENT_OPTIONS} />
-        <div className="h-px bg-slate-100 dark:bg-ink-800" />
-        <Select
-          label="Lesson level"
-          value={lessonLevel}
-          onChange={(value) => setLessonLevel(value, profile?.user_id)}
-          options={LEVEL_OPTIONS}
-        />
-      </Card>
 
       <Card padding="lg">
         <VoiceSelector

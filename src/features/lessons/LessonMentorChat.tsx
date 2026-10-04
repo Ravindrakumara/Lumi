@@ -22,10 +22,9 @@ export default function LessonMentorChat({ lessonId }: { lessonId: string }) {
   const [expanded, setExpanded] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
-  const agentName = useSettingsStore((s) => s.agentName);
 
   const sendMutation = useMutation({
-    mutationFn: (text: string) => chatApi.send(text, `lesson-${lessonId}`, agentName, lessonId),
+    mutationFn: (text: string) => chatApi.send(text, `lesson-${lessonId}`, lessonId),
     onSuccess: (responseText) => {
       setMessages((prev) => [...prev, { role: "assistant", text: responseText }]);
     },

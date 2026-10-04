@@ -1,4 +1,4 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import { useEffect, useRef } from "react";
 import { chatApi } from "../api/chatApi";
@@ -26,11 +26,12 @@ interface UseChatSessionOptions {
  * send/quota/speak logic exists in exactly one place instead of being
  * duplicated per screen. */
 export function useChatSession({ onQuotaExceeded, shouldSpeak }: UseChatSessionOptions = {}) {
+  const queryClient = useQueryClient();
   const messages = useChatStore((s) => s.messages);
+  const sessionId = useChatStore((s) => s.sessionId);
   const quotaExceeded = useChatStore((s) => s.quotaExceeded);
   const addMessage = useChatStore((s) => s.addMessage);
   const setQuotaExceeded = useChatStore((s) => s.setQuotaExceeded);
-  const agentName = useSettingsStore((s) => s.agentName);
 
   // Lets sendAndWaitForReply() know when a turn (LLM response AND its
   // spoken playback) has fully finished - the hands-free voice loop
@@ -50,11 +51,15 @@ export function useChatSession({ onQuotaExceeded, shouldSpeak }: UseChatSessionO
   });
 
   const sendMutation = useMutation({
-    mutationFn: (text: string) => chatApi.send(text, "default", agentName),
+    mutationFn: (text: string) => chatApi.send(text, sessionId),
     onSuccess: async (responseText) => {
       // Stored as the model's raw Markdown - ChatBubble escapes and
       // renders it, so nothing here needs to pre-mangle line breaks.
       addMessage({ role: "assistant", text: responseText });
+      // A brand-new conversation only exists once its first turn is
+      // stored, so the list has to be refetched or it would not appear
+      // until a reload. Also keeps each card's preview and count current.
+      queryClient.invalidateQueries({ queryKey: ["chat", "sessions"] });
       if (shouldSpeakRef.current?.()) await speak(responseText);
       turnCompleteResolverRef.current?.();
       turnCompleteResolverRef.current = null;

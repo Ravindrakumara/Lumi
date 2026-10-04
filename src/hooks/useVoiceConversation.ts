@@ -20,6 +20,11 @@ interface UseVoiceConversationOptions {
    * AC-6) - opt-in since it's extra server-side work only the assessment
    * page needs; general chat/voice-mode leave this unset. */
   includeAcousticFeatures?: boolean;
+  /** How long the learner may stay quiet mid-turn before the hook decides
+   * they have finished. Surfaces where people think before speaking - the
+   * placement assessment most of all - should pass something generous;
+   * being cut off mid-sentence is far worse than a beat of silence. */
+  silenceDurationMs?: number;
 }
 
 /** Hands-free voice mode: holds one open microphone stream for the whole
@@ -32,6 +37,7 @@ export function useVoiceConversation({
   onUtterance,
   onError,
   includeAcousticFeatures,
+  silenceDurationMs,
 }: UseVoiceConversationOptions) {
   const [isActive, setIsActive] = useState(false);
   const [phase, setPhase] = useState<VoiceConversationPhase>("idle");
@@ -112,7 +118,11 @@ export function useVoiceConversation({
     );
 
     recorder.start();
+    // Kept so the learner can end their own turn deliberately instead of
+    // waiting out the silence timer - "I've finished, answer me now".
+    recorderRef.current = recorder;
     vad.start(stream, {
+      silenceDurationMs,
       onSilenceAfterSpeech: () => {
         if (recorder.state !== "inactive") recorder.stop();
       },
@@ -120,7 +130,15 @@ export function useVoiceConversation({
         levelRef.current = level;
       },
     });
-  }, [onUtterance, onError, vad, includeAcousticFeatures]);
+  }, [onUtterance, onError, vad, includeAcousticFeatures, silenceDurationMs]);
+
+  /** End the current turn now. The recorder's own stop handler does the
+   * rest of the loop, so this behaves exactly like the silence timer
+   * firing - just at a moment the learner chose. */
+  const endTurn = useCallback(() => {
+    const recorder = recorderRef.current;
+    if (recorder && recorder.state === "recording") recorder.stop();
+  }, []);
 
   const startConversation = useCallback(async () => {
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -157,6 +175,7 @@ export function useVoiceConversation({
     levelRef,
     startConversation,
     stopConversation,
+    endTurn,
     isSupported: Boolean(navigator.mediaDevices?.getUserMedia),
   };
 }

@@ -14,33 +14,42 @@ interface CreateLessonDialogProps {
   onClose: () => void;
 }
 
-const LEVEL_OPTIONS = [
-  { value: "primary", label: "Primary" },
-  { value: "secondary", label: "Secondary" },
-  { value: "college", label: "College" },
-  { value: "professional", label: "Professional" },
+// The unlock axis tied to the Adaptive Assessment Engine's result: a
+// learner measured below this band cannot open the lesson yet. "Any level"
+// leaves it untagged, which is how every existing lesson behaves.
+const CEFR_OPTIONS = [
+  { value: "", label: "Any level (untagged)" },
+  { value: "A1", label: "A1 - Beginner" },
+  { value: "A2", label: "A2 - Elementary" },
+  { value: "B1", label: "B1 - Intermediate" },
+  { value: "B2", label: "B2 - Upper intermediate" },
+  { value: "C1", label: "C1 - Advanced" },
+  { value: "C2", label: "C2 - Proficient" },
 ];
 
 export default function CreateLessonDialog({ open, onClose }: CreateLessonDialogProps) {
   const queryClient = useQueryClient();
   const [id, setId] = useState("");
-  const [level, setLevel] = useState<LessonLevel>("secondary");
+  const level: LessonLevel = "secondary";
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [topic, setTopic] = useState("");
   const [difficulty, setDifficulty] = useState("1");
   const [durationMinutes, setDurationMinutes] = useState("30");
   const [introduction, setIntroduction] = useState("");
+  const [cefrLevel, setCefrLevel] = useState("");
+  const [sequence, setSequence] = useState("");
 
   function reset() {
     setId("");
-    setLevel("secondary");
     setTitle("");
     setDescription("");
     setTopic("");
     setDifficulty("1");
     setDurationMinutes("30");
     setIntroduction("");
+    setCefrLevel("");
+    setSequence("");
   }
 
   const createMutation = useMutation<unknown, AxiosError<{ detail: string }>, void>({
@@ -54,6 +63,8 @@ export default function CreateLessonDialog({ open, onClose }: CreateLessonDialog
         difficulty: Number(difficulty),
         duration_minutes: Number(durationMinutes),
         introduction,
+        cefr_level: cefrLevel,
+        sequence: sequence,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "lessons"] });
@@ -80,16 +91,13 @@ export default function CreateLessonDialog({ open, onClose }: CreateLessonDialog
               createMutation.mutate();
             }}
           >
-            <div className="grid grid-cols-2 gap-3">
-              <FormField
-                label="Lesson ID"
-                value={id}
-                onChange={(e) => setId(e.target.value)}
-                placeholder="e.g. prof_003"
-                required
-              />
-              <Select label="Level" value={level} onChange={(v) => setLevel(v as LessonLevel)} options={LEVEL_OPTIONS} />
-            </div>
+            <FormField
+              label="Lesson ID"
+              value={id}
+              onChange={(e) => setId(e.target.value)}
+              placeholder="e.g. a1_13"
+              required
+            />
 
             <FormField label="Title" value={title} onChange={(e) => setTitle(e.target.value)} required />
 
@@ -105,8 +113,24 @@ export default function CreateLessonDialog({ open, onClose }: CreateLessonDialog
               <TextArea value={introduction} onChange={(e) => setIntroduction(e.target.value)} rows={3} />
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <FormField label="Topic" value={topic} onChange={(e) => setTopic(e.target.value)} required />
+              <Select
+                label="Required CEFR level"
+                value={cefrLevel}
+                onChange={setCefrLevel}
+                options={CEFR_OPTIONS}
+              />
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <FormField
+                label="Sequence"
+                type="number"
+                value={sequence}
+                placeholder="e.g. 113"
+                onChange={(e) => setSequence(e.target.value)}
+              />
               <FormField
                 label="Difficulty (1-5)"
                 type="number"
@@ -123,6 +147,14 @@ export default function CreateLessonDialog({ open, onClose }: CreateLessonDialog
                 onChange={(e) => setDurationMinutes(e.target.value)}
               />
             </div>
+
+            <p className="-mt-2 text-xs text-slate-500 dark:text-ink-400">
+              Sequence is the curriculum position that decides which lesson a
+              learner is handed next. Numbered in hundreds per band
+              (A1&nbsp;=&nbsp;101…, A2&nbsp;=&nbsp;201…) so a lesson can be slotted
+              between two others. Leave it blank to keep the lesson out of the
+              running order.
+            </p>
 
             {createMutation.error ? (
               <p className="text-sm text-red-600">{createMutation.error.response?.data?.detail}</p>

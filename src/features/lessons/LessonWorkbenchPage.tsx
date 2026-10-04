@@ -1,8 +1,8 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { CheckCircleIcon, MinusCircleIcon, PlayCircleIcon } from "@heroicons/react/20/solid";
 import { useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
-import { lessonsApi } from "../../api/lessonsApi";
+import { useNavigate, useParams } from "react-router-dom";
+import { lessonsApi, type NextLesson } from "../../api/lessonsApi";
 import Badge from "../../components/atoms/Badge";
 import Button from "../../components/atoms/Button";
 import Input from "../../components/atoms/Input";
@@ -20,6 +20,11 @@ interface CompletedStep {
 
 export default function LessonWorkbenchPage() {
   const { lessonId } = useParams<{ lessonId: string }>();
+  const navigate = useNavigate();
+  // Handed back by the server when this lesson is finished, so the learner
+  // continues straight on instead of returning to the catalogue to work
+  // out where they had got to.
+  const [nextLesson, setNextLesson] = useState<NextLesson | null>(null);
   const [exercise, setExercise] = useState<Exercise | null>(null);
   const [progress, setProgress] = useState<LessonProgress | null>(null);
   const [answer, setAnswer] = useState("");
@@ -40,6 +45,22 @@ export default function LessonWorkbenchPage() {
 
   const [startError, setStartError] = useState(false);
   const autoStartedRef = useRef(false);
+
+  // "Start next lesson" changes the route param without unmounting this
+  // component, so every piece of per-lesson state has to be cleared by
+  // hand. Without this the learner would arrive at the new lesson looking
+  // at the previous one's finished state, and autoStartedRef would still
+  // be true so the new lesson would never start.
+  useEffect(() => {
+    autoStartedRef.current = false;
+    setExercise(null);
+    setProgress(null);
+    setFeedback(null);
+    setNextLesson(null);
+    setHistory([]);
+    setAnswer("");
+    setViewedIndex(null);
+  }, [lessonId]);
 
   const startMutation = useMutation({
     mutationFn: () => lessonsApi.start(lessonId!),
@@ -71,6 +92,7 @@ export default function LessonWorkbenchPage() {
       setProgress(data.progress);
       setFeedback(data.result);
       setExercise(data.next_exercise);
+      setNextLesson(data.next_lesson);
       setAnswer("");
       setViewedIndex(null);
     },
@@ -253,9 +275,38 @@ export default function LessonWorkbenchPage() {
               )}
             </div>
           ) : (
-            <p className="rounded-lg bg-emerald-50 p-4 text-sm font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400">
-              🎉 Lesson complete! Final score: {progress.score}/{lesson.max_score}
-            </p>
+            <div className="space-y-3">
+              <p className="rounded-lg bg-emerald-50 p-4 text-sm font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400">
+                🎉 Lesson complete! Final score: {progress.score}/{lesson.max_score}
+              </p>
+
+              {nextLesson ? (
+                <div className="rounded-xl border border-brand-100 bg-brand-50/60 p-4 dark:border-ink-700 dark:bg-ink-900">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-brand-600 dark:text-live-500">
+                    Up next
+                  </p>
+                  <p className="mt-1 font-display text-[16px] font-extrabold text-ink-900 dark:text-ink-100">
+                    {nextLesson.title}
+                  </p>
+                  <p className="mt-0.5 text-[13px] text-slate-600 dark:text-ink-400">{nextLesson.description}</p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-500 dark:text-ink-400">
+                    {nextLesson.cefr_level ? <Badge tone="neutral">{nextLesson.cefr_level}</Badge> : null}
+                    <span>⏱ {nextLesson.duration_minutes} min</span>
+                    <span>✎ {nextLesson.exercise_count} exercises</span>
+                  </div>
+                  <Button
+                    className="mt-3"
+                    onClick={() => navigate(`/lessons/${nextLesson.id}`)}
+                  >
+                    Start next lesson →
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-[13px] text-slate-500 dark:text-ink-400">
+                  That's everything unlocked for now — nice work.
+                </p>
+              )}
+            </div>
           )}
             </>
           )}

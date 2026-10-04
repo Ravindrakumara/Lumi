@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import Input from "../atoms/Input";
 import Orb, { type OrbState } from "../atoms/Orb";
 import ChatBubble from "../molecules/ChatBubble";
+import ChatSessionList from "./ChatSessionList";
 import VoiceCaptions from "../molecules/VoiceCaptions";
 import { useChatSession } from "../../hooks/useChatSession";
 import { useVoiceConversation } from "../../hooks/useVoiceConversation";
@@ -93,6 +94,12 @@ export default function ChatWindow() {
 
   return (
     <div className="flex h-full flex-col">
+      {/* shrink-0 so the strip keeps its height and the transcript below
+          absorbs the remaining space instead of being pushed off. */}
+      <div className="mb-3 shrink-0">
+        <ChatSessionList />
+      </div>
+
       <div className="relative flex min-h-0 flex-1 flex-col">
       <div
         ref={scrollRef}

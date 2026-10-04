@@ -9,6 +9,7 @@ import Orb, { type OrbState } from "../../components/atoms/Orb";
 import Spinner from "../../components/atoms/Spinner";
 import ChatBubble from "../../components/molecules/ChatBubble";
 import { useVoiceConversation } from "../../hooks/useVoiceConversation";
+import { useVoicePlayback } from "../../hooks/useVoicePlayback";
 import type { AcousticFeatures, AssessmentResult, AssessmentTurn } from "../../types";
 
 const DIMENSIONS: { key: keyof AssessmentResult; label: string }[] = [
@@ -88,11 +89,30 @@ export default function AssessmentPage() {
     },
   });
 
+  // The orb and the caption always claimed Lumi was "replying", but
+  // nothing was ever spoken - the page only ever captured audio. A
+  // placement assessment that talks back is also a better elicitation:
+  // an A1 learner may not be able to read the question they are meant to
+  // answer aloud.
+  const [muted, setMuted] = useState(false);
+  const mutedRef = useRef(false);
+  mutedRef.current = muted;
+  const playback = useVoicePlayback();
+
   const conversation = useVoiceConversation({
     includeAcousticFeatures: true,
+    // Generous on purpose: a learner being assessed pauses to think, and
+    // the default cut them off mid-sentence so the engine graded half an
+    // answer. See useVoiceActivityDetection for the reasoning.
+    silenceDurationMs: 3500,
     onUtterance: async (text, acousticFeatures) => {
       setTranscript((prev) => [...prev, { role: "user", text }]);
-      await respondMutation.mutateAsync({ message: text, acousticFeatures });
+      const data = await respondMutation.mutateAsync({ message: text, acousticFeatures });
+      // Awaited deliberately: the hook does not listen again until this
+      // resolves, and speak() resolves on the audio's "ended" event. Fire
+      // it without awaiting and the microphone reopens mid-sentence and
+      // transcribes Lumi as the learner.
+      if (!mutedRef.current) await playback.speak(data.reply);
       // The engine itself decides when the assessment is done (AC-7) -
       // once it does, stop the hands-free loop so the mic doesn't stay
       // hot on the result screen.
@@ -118,7 +138,9 @@ export default function AssessmentPage() {
     if (!message || respondMutation.isPending) return;
     setTranscript((prev) => [...prev, { role: "user", text: message }]);
     setDraft("");
-    respondMutation.mutate({ message });
+    respondMutation.mutateAsync({ message }).then((data) => {
+      if (!mutedRef.current) void playback.speak(data.reply);
+    });
   }
 
   if (isLoading) {
@@ -176,7 +198,7 @@ export default function AssessmentPage() {
   const phase = conversation.isActive ? conversation.phase : "idle";
 
   return (
-    <div className="mx-auto flex h-screen max-w-2xl flex-col bg-cream p-4 dark:bg-ink-950 sm:p-6">
+    <div className="mx-auto flex h-screen max-h-screen max-w-2xl flex-col overflow-hidden bg-cream p-4 dark:bg-ink-950 sm:p-6">
       <div className="mb-4">
         <h1 className="font-display text-[26px] font-extrabold text-ink-900 dark:text-ink-100">
           Let's get to know your English! 👋
@@ -188,7 +210,7 @@ export default function AssessmentPage() {
 
       <div
         ref={scrollRef}
-        className="flex-1 space-y-3 overflow-y-auto rounded-[20px] bg-[#f2f2f4] p-4 dark:bg-ink-800/40"
+        className="min-h-0 flex-1 space-y-3 overflow-y-auto rounded-[20px] bg-[#f2f2f4] p-4 dark:bg-ink-800/40"
       >
         {transcript.map((turn, i) => (
           <ChatBubble key={i} role={turn.role} text={turn.text} />
@@ -215,7 +237,7 @@ export default function AssessmentPage() {
           </button>
         </form>
       ) : conversation.isSupported ? (
-        <div className="mt-3 flex flex-col items-center gap-3 overflow-hidden rounded-2xl border border-[#16224a] bg-[radial-gradient(ellipse_80%_60%_at_50%_28%,#16255c,#050a1c_70%)] py-7">
+        <div className="mt-3 flex shrink-0 flex-col items-center gap-3 py-5">
           {/* Always-visible phase state - the earlier version's silent
               mic toggle was exactly what left learners unsure whether
               the assessment was actually progressing. The orb carries
@@ -242,7 +264,7 @@ export default function AssessmentPage() {
             />
           </button>
 
-          <p className="text-[13.5px] font-semibold text-[#93a9d8]">{PHASE_LABEL[phase]}</p>
+          <p className="text-[13.5px] font-semibold text-slate-500 dark:text-ink-400">{PHASE_LABEL[phase]}</p>
 
           <button
             type="button"
@@ -262,6 +284,53 @@ export default function AssessmentPage() {
             {conversation.isActive ? "Pause" : "Start talking"}
           </button>
 
+          {/* Ending a turn by hand. The silence timer still works, but a
+              learner who knows they have finished should not have to sit
+              through it - and one who trailed off should not be cut short
+              because of it. */}
+          {conversation.isActive && phase === "listening" ? (
+            <button
+              type="button"
+              onClick={conversation.endTurn}
+              className="rounded-full border border-brand-200 px-5 py-2 text-[12.5px] font-bold text-brand-600 transition-colors hover:bg-brand-50 dark:border-ink-700 dark:text-live-500 dark:hover:bg-ink-800"
+            >
+              Done speaking →
+            </button>
+          ) : null}
+
+          {/* Stop cancels this reply; mute keeps Lumi silent for the rest
+              of the assessment. Both matter: a learner may want quiet now
+              without giving up spoken questions entirely. */}
+          <div className="flex items-center gap-2">
+            {playback.isSpeaking ? (
+              <button
+                type="button"
+                onClick={playback.stop}
+                className="rounded-full border border-slate-300 px-4 py-1.5 text-[12px] font-bold text-slate-700 transition-colors hover:bg-slate-100 dark:border-ink-700 dark:text-ink-100 dark:hover:bg-ink-800"
+              >
+                ■ Stop
+              </button>
+            ) : null}
+            <button
+              type="button"
+              aria-pressed={muted}
+              onClick={() => {
+                const next = !muted;
+                setMuted(next);
+                // Muting mid-sentence should silence what is playing now,
+                // not just the next reply.
+                if (next) playback.stop();
+              }}
+              className={`rounded-full border px-4 py-1.5 text-[12px] font-bold transition-colors ${
+                muted
+                  ? "border-live-500 text-live-600 dark:border-live-500 dark:text-live-500"
+                  : "border-slate-300 text-slate-600 hover:bg-slate-100 dark:border-ink-700 dark:text-ink-400 dark:hover:bg-ink-800"
+              }`}
+            >
+              {muted ? "🔇 Muted" : "🔊 Sound on"}
+            </button>
+          </div>
+
           {voiceError ? (
             <p className="max-w-xs text-center text-xs text-red-600 dark:text-red-400">{voiceError}</p>
           ) : null}
@@ -269,7 +338,7 @@ export default function AssessmentPage() {
           <button
             type="button"
             onClick={() => setPreferTyping(true)}
-            className="text-[11.5px] text-[#6b7ea8] hover:underline"
+            className="text-[11.5px] text-slate-500 hover:underline dark:text-ink-400"
           >
             Prefer to type?
           </button>

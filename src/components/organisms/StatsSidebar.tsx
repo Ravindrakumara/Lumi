@@ -4,7 +4,6 @@ import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { profileApi } from "../../api/profileApi";
 import { progressApi } from "../../api/progressApi";
-import type { LessonLevel } from "../../types";
 import StatTile from "../atoms/StatTile";
 import GoalRing from "../molecules/GoalRing";
 
@@ -12,14 +11,19 @@ import GoalRing from "../molecules/GoalRing";
 // is 'your first 3 lessons', labelled as such.
 const DAILY_GOAL = 3;
 
-// Same 4-tier ladder LessonsPage/SettingsPage let a learner choose from -
-// used here purely to place their current Program on a "journey" strip,
-// not a separate concept of its own.
-const JOURNEY_TIERS: { id: LessonLevel; label: string }[] = [
-  { id: "primary", label: "Primary" },
-  { id: "secondary", label: "Secondary" },
-  { id: "college", label: "College" },
-  { id: "professional", label: "Professional" },
+// The CEFR ladder - the international standard the Adaptive Assessment
+// Engine grades against, and the same six bands stored on
+// profile.cefr_level. Deliberately NOT the four Programs
+// (Primary/Secondary/College/Professional): a Program says who the
+// learner is - a child, a professional - which is not a ladder anyone
+// climbs. Ability is, and that is what a journey strip should show.
+const CEFR_BANDS: { id: string; name: string }[] = [
+  { id: "A1", name: "Beginner" },
+  { id: "A2", name: "Elementary" },
+  { id: "B1", name: "Intermediate" },
+  { id: "B2", name: "Upper intermediate" },
+  { id: "C1", name: "Advanced" },
+  { id: "C2", name: "Proficient" },
 ];
 
 function StatCard({ title, viewAllTo, children }: { title: string; viewAllTo?: string; children: ReactNode }) {
@@ -40,22 +44,24 @@ function StatCard({ title, viewAllTo, children }: { title: string; viewAllTo?: s
 
 // Point layout for the wave path below - evenly spaced on x, alternating
 // low/high on y, same amplitude/viewBox as the mockup's hand-drawn curve.
-const WAVE_VIEWBOX = { w: 260, h: 56 };
-const WAVE_X = [14, 91, 168, 246];
-const WAVE_Y = [40, 16, 40, 16];
+const WAVE_VIEWBOX = { w: 260, h: 74 };
+const WAVE_X = [14, 60.4, 106.8, 153.2, 199.6, 246];
+const WAVE_Y = [40, 16, 40, 16, 40, 16];
+const LABEL_Y = 66;
 
 function cubicSegment(x1: number, y1: number, x2: number, y2: number) {
   const dx = (x2 - x1) / 2;
   return `C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
 }
 
-export function JourneyCard({ currentTierId }: { currentTierId: string | undefined }) {
-  const currentIndex = Math.max(
-    0,
-    JOURNEY_TIERS.findIndex((t) => t.id === currentTierId)
-  );
-  const lastIndex = JOURNEY_TIERS.length - 1;
-  const remaining = lastIndex - currentIndex;
+export function JourneyCard({ cefrLevel }: { cefrLevel: string | null | undefined }) {
+  // -1 means "not placed yet": the assessment has not run, so no band is
+  // pinned. Deliberately not defaulted to A1 - showing an unassessed
+  // learner sitting on Beginner states something the app does not know.
+  const currentIndex = cefrLevel ? CEFR_BANDS.findIndex((b) => b.id === cefrLevel) : -1;
+  const placed = currentIndex >= 0;
+  const lastIndex = CEFR_BANDS.length - 1;
+  const remaining = placed ? lastIndex - currentIndex : lastIndex;
 
   const fullPath = `M${WAVE_X[0]},${WAVE_Y[0]} ${WAVE_X.slice(1)
     .map((x, i) => cubicSegment(WAVE_X[i], WAVE_Y[i], x, WAVE_Y[i + 1]))
@@ -72,41 +78,70 @@ export function JourneyCard({ currentTierId }: { currentTierId: string | undefin
       <div className="mb-2.5 flex items-center justify-between">
         <span className="text-[13.5px] font-semibold text-slate-800 dark:text-ink-100">Your Journey</span>
         <span className="whitespace-nowrap text-[11px] font-bold text-live-500">
-          {remaining > 0 ? `${remaining} to go 🏆` : "Top tier 🏆"}
+          {!placed ? "Not placed yet" : remaining > 0 ? `${remaining} to go 🏆` : "Top band 🏆"}
         </span>
       </div>
-      <svg viewBox={`0 0 ${WAVE_VIEWBOX.w} ${WAVE_VIEWBOX.h}`} width="100%" height="52">
+
+      <svg viewBox={`0 0 ${WAVE_VIEWBOX.w} ${WAVE_VIEWBOX.h}`} width="100%" height="68" role="img"
+        aria-label={placed
+          ? `CEFR level ${CEFR_BANDS[currentIndex].id} of ${CEFR_BANDS[lastIndex].id}`
+          : "CEFR level not assessed yet"}>
         <path d={fullPath} fill="none" stroke="#e4e7ee" strokeWidth="3" strokeLinecap="round" />
         {traveledPath ? (
           <path d={traveledPath} fill="none" stroke="#ff6a45" strokeWidth="3" strokeLinecap="round" />
         ) : null}
-        {WAVE_X.map((x, i) => {
-          const isStart = i === 0;
+
+        {CEFR_BANDS.map((band, i) => {
+          const x = WAVE_X[i];
           const isCurrent = i === currentIndex;
-          const isEnd = i === lastIndex;
-          if (isStart || isCurrent) {
-            return (
-              <g key={i}>
-                <circle cx={x} cy={WAVE_Y[i]} r={9} fill={isCurrent && !isStart ? "#f1f6ff" : "#fff5f1"} />
-                <circle cx={x} cy={WAVE_Y[i]} r={5.5} fill={isCurrent && !isStart ? "#3b6fed" : "#ff6a45"} />
-              </g>
-            );
-          }
-          if (isEnd) {
-            return (
-              <g key={i}>
-                <circle cx={x} cy={WAVE_Y[i]} r={8} fill="#f1f6ff" />
-                <circle cx={x} cy={WAVE_Y[i]} r={4.5} fill="#3b6fed" />
-              </g>
-            );
-          }
-          return <circle key={i} cx={x} cy={WAVE_Y[i]} r={4.5} fill="#ffffff" stroke="#dfe3ee" strokeWidth={2} />;
+          const isPassed = placed && i < currentIndex;
+          return (
+            <g key={band.id}>
+              {isCurrent ? (
+                // The pin: a filled marker with a halo, so the learner's
+                // own band reads at a glance against five plain dots.
+                <>
+                  <circle cx={x} cy={WAVE_Y[i]} r={9.5} fill="#fff5f1" />
+                  <circle cx={x} cy={WAVE_Y[i]} r={5.5} fill="#ff6a45" />
+                </>
+              ) : (
+                <circle
+                  cx={x}
+                  cy={WAVE_Y[i]}
+                  r={4.5}
+                  fill={isPassed ? "#ff6a45" : "#ffffff"}
+                  stroke={isPassed ? "#ff6a45" : "#dfe3ee"}
+                  strokeWidth={2}
+                />
+              )}
+              {/* Every band is labelled, not just the ends - the ladder is
+                  only legible if the learner can see where the rungs are. */}
+              <text
+                x={x}
+                y={LABEL_Y}
+                textAnchor="middle"
+                fontSize={isCurrent ? 11 : 10}
+                fontWeight={isCurrent ? 800 : 600}
+                fill={isCurrent ? "#ff6a45" : isPassed ? "#9aa3b2" : "#b7bdc9"}
+              >
+                {band.id}
+              </text>
+            </g>
+          );
         })}
       </svg>
-      <div className="mt-0.5 flex justify-between text-[10px] font-bold">
-        <span className="text-live-600">You &middot; {JOURNEY_TIERS[currentIndex]?.label ?? "Primary"}</span>
-        <span className="text-brand-500">{JOURNEY_TIERS[lastIndex].label}</span>
-      </div>
+
+      <p className="mt-1 text-center text-[10.5px] font-bold text-live-600">
+        {placed ? (
+          <>
+            You &middot; {CEFR_BANDS[currentIndex].id} &middot; {CEFR_BANDS[currentIndex].name}
+          </>
+        ) : (
+          <Link to="/assessment" className="hover:underline">
+            Take the placement assessment →
+          </Link>
+        )}
+      </p>
     </div>
   );
 }
@@ -125,7 +160,7 @@ export function JourneySnapshot() {
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
-      <JourneyCard currentTierId={profile?.program.id} />
+      <JourneyCard cefrLevel={profile?.cefr_level} />
       <StatCard title="Getting started">
         <div className="flex items-center gap-4">
           <GoalRing done={dailyDone} total={DAILY_GOAL} />
@@ -164,7 +199,7 @@ export default function StatsSidebar() {
 
   return (
     <aside className="hidden w-72 flex-col gap-4 overflow-y-auto border-l border-slate-200 bg-cream p-4 dark:border-ink-700 dark:bg-ink-950 lg:flex">
-      <JourneyCard currentTierId={profile?.program.id} />
+      <JourneyCard cefrLevel={profile?.cefr_level} />
 
       <StatCard title="Your Progress" viewAllTo="/progress">
         <div className="grid grid-cols-3 gap-2">

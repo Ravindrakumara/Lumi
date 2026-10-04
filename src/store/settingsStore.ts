@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { DEFAULT_AGENT } from "../constants/agents";
 import { adoptLegacyKey } from "./adoptLegacyKey";
 import type { VoiceMode } from "../types";
 
@@ -7,7 +8,7 @@ interface SettingsState {
   voiceName: string;
   voiceMode: VoiceMode;
   darkMode: boolean;
-  agentName: string; // "" = Auto Router, see constants/agents.ts
+  agentName: string; // see constants/agents.ts - resolveAgent() guards stale values
   lessonLevel: string;
   // Which account's choice lessonLevel currently reflects. This store
   // persists to localStorage, which is scoped to the BROWSER, not the
@@ -35,8 +36,8 @@ export const useSettingsStore = create<SettingsState>()(
       voiceName: "ryan",
       voiceMode: "auto",
       darkMode: false,
-      agentName: "",
-      lessonLevel: "",
+      agentName: DEFAULT_AGENT,
+      lessonLevel: "",  // now a CEFR band ("" = all bands)
       lessonLevelOwnerId: null,
 
       setVoiceName: (voiceName) => set({ voiceName }),
