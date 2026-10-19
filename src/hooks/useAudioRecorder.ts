@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useVoiceActivityDetection } from "./useVoiceActivityDetection";
 
 interface UseAudioRecorderOptions {
   onError?: (message: string) => void;
@@ -13,6 +14,14 @@ export function useAudioRecorder({ onError }: UseAudioRecorderOptions = {}) {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
+  // Live mic loudness, 0-1, for audio-reactive visuals (see Orb's
+  // levelRef). A ref rather than state: this updates every animation
+  // frame, and setState at 60fps would re-render the whole page.
+  const levelRef = useRef(0);
+  // Reused rather than writing a second RMS loop. Only the level reading
+  // is wanted here - this surface stops when the learner taps, not when
+  // they go quiet, so the silence callback is deliberately a no-op.
+  const meter = useVoiceActivityDetection();
 
   const start = useCallback(async () => {
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -32,12 +41,21 @@ export function useAudioRecorder({ onError }: UseAudioRecorderOptions = {}) {
 
       mediaRecorderRef.current = recorder;
       recorder.start();
+      meter.start(stream, {
+        onSilenceAfterSpeech: () => {},
+        onLevel: (level) => {
+          levelRef.current = level;
+        },
+      });
       setIsRecording(true);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       onError?.(`Could not access microphone: ${message}`);
     }
   }, [onError]);
+
+  const meterRef = useRef(meter);
+  meterRef.current = meter;
 
   const stop = useCallback((): Promise<{ blob: Blob; mimeType: string } | null> => {
     return new Promise((resolve) => {
@@ -49,6 +67,8 @@ export function useAudioRecorder({ onError }: UseAudioRecorderOptions = {}) {
       // "stop" event that releases the microphone track never fires, so
       // the promise hangs forever and the mic stays hot indefinitely.
       if (!recorder || recorder.state === "inactive") {
+        meterRef.current.stop();
+        levelRef.current = 0;
         setIsRecording(false);
         resolve(null);
         return;
@@ -59,6 +79,8 @@ export function useAudioRecorder({ onError }: UseAudioRecorderOptions = {}) {
         () => {
           const mimeType = recorder.mimeType || "audio/webm";
           const blob = new Blob(chunksRef.current, { type: mimeType });
+          meterRef.current.stop();
+          levelRef.current = 0;
           streamRef.current?.getTracks().forEach((track) => track.stop());
           mediaRecorderRef.current = null;
           setIsRecording(false);
@@ -86,9 +108,16 @@ export function useAudioRecorder({ onError }: UseAudioRecorderOptions = {}) {
           // calls below are what actually matters for releasing hardware.
         }
       }
+      meterRef.current.stop();
       streamRef.current?.getTracks().forEach((track) => track.stop());
     };
   }, []);
 
-  return { isRecording, start, stop, isSupported: Boolean(navigator.mediaDevices?.getUserMedia) };
+  return {
+    isRecording,
+    levelRef,
+    start,
+    stop,
+    isSupported: Boolean(navigator.mediaDevices?.getUserMedia),
+  };
 }

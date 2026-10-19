@@ -5,9 +5,9 @@ import { profileApi } from "../../api/profileApi";
 import Badge from "../../components/atoms/Badge";
 import Button from "../../components/atoms/Button";
 import Card from "../../components/atoms/Card";
+import PageHeader from "../../components/atoms/PageHeader";
 import Select from "../../components/atoms/Select";
 import Spinner from "../../components/atoms/Spinner";
-import StatTile from "../../components/atoms/StatTile";
 import ConfirmDialog from "../../components/organisms/ConfirmDialog";
 import FormField from "../../components/molecules/FormField";
 import PillMultiSelect from "../../components/molecules/PillMultiSelect";
@@ -112,11 +112,12 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="max-w-2xl space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-slate-900 dark:text-ink-100">Your Profile</h2>
-        {isEditing ? null : <Button onClick={startEditing}>Edit</Button>}
-      </div>
+    <div className="max-w-2xl space-y-5">
+      <PageHeader
+        title="Your profile"
+        subtitle="Your details, goals, and learning totals."
+        action={isEditing ? null : <Button onClick={startEditing}>Edit</Button>}
+      />
 
       {isEditing ? (
         <form
@@ -186,9 +187,23 @@ export default function ProfilePage() {
           </Card>
 
           <div className="grid grid-cols-3 gap-3">
-            <StatTile value={profile.total_exercises_completed} label="Exercises" tone="info" />
-            <StatTile value={profile.total_sessions} label="Sessions" tone="highlight" />
-            <StatTile value={profile.total_learning_hours.toFixed(1)} label="Hours" tone="success" />
+            {(
+              [
+                ["Exercises", profile.total_exercises_completed],
+                ["Sessions", profile.total_sessions],
+                ["Hours", profile.total_learning_hours.toFixed(1)],
+              ] as [string, string | number][]
+            ).map(([label, value]) => (
+              <div
+                key={label}
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-center dark:border-ink-700 dark:bg-ink-900"
+              >
+                <p className="font-display text-[22px] font-extrabold text-ink-900 dark:text-ink-100">{value}</p>
+                <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-ink-400">
+                  {label}
+                </p>
+              </div>
+            ))}
           </div>
 
           <div className="rounded-xl border border-red-200 bg-red-50/50 p-4 dark:border-red-500/20 dark:bg-red-500/5">

@@ -1,4 +1,4 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { isAxiosError } from "axios";
 import { voiceApi } from "../api/voiceApi";
 import { useSettingsStore } from "../store/settingsStore";
@@ -31,56 +31,77 @@ interface UseVoicePlaybackOptions {
  * has started - audio.play()'s own promise resolves on start, which is
  * the wrong signal here) - useVoiceConversation's hands-free loop needs
  * this to know when it's safe to start listening again, so it doesn't
- * pick up the assistant's own voice as the next thing to transcribe. */
+ * pick up the assistant's own voice as the next thing to transcribe.
+ *
+ * stop() exists because a learner must always be able to cut the
+ * assistant off mid-sentence - without it a long reply traps them until
+ * it finishes. */
 export function useVoicePlayback({ onQuotaExceeded }: UseVoicePlaybackOptions = {}) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const urlRef = useRef<string | null>(null);
+  // Lets an in-flight speak() know it was cancelled while it was still
+  // waiting on the network, so it never starts playing after a stop().
+  const generationRef = useRef(0);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const { voiceName, voiceMode } = useSettingsStore();
+
+  const stop = useCallback(() => {
+    generationRef.current += 1;
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current = null;
+    }
+    if (urlRef.current) {
+      URL.revokeObjectURL(urlRef.current);
+      urlRef.current = null;
+    }
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    setIsSpeaking(false);
+  }, []);
+
+  // Never let audio outlive the screen that started it.
+  useEffect(() => stop, [stop]);
 
   const speak = useCallback(
     async (text: string): Promise<void> => {
       const spokenText = cleanSpokenText(text || "");
       if (!spokenText) return;
 
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
+      stop();
+      const generation = generationRef.current;
+      setIsSpeaking(true);
 
       try {
         const blob = await voiceApi.synthesize(spokenText, voiceName, voiceMode);
+        if (generation !== generationRef.current) return; // stopped while fetching
         const url = URL.createObjectURL(blob);
         const audio = new Audio(url);
         audioRef.current = audio;
+        urlRef.current = url;
 
         await new Promise<void>((resolve) => {
-          audio.addEventListener(
-            "ended",
-            () => {
+          const finish = () => {
+            if (urlRef.current === url) {
               URL.revokeObjectURL(url);
-              resolve();
-            },
-            { once: true }
-          );
-          audio.addEventListener(
-            "error",
-            () => {
-              URL.revokeObjectURL(url);
-              resolve();
-            },
-            { once: true }
-          );
-          audio.play().catch(() => resolve());
+              urlRef.current = null;
+            }
+            resolve();
+          };
+          audio.addEventListener("ended", finish, { once: true });
+          audio.addEventListener("error", finish, { once: true });
+          audio.play().catch(() => finish());
         });
       } catch (err) {
         if (isAxiosError(err) && err.response?.status === 429) {
-          onQuotaExceeded?.(
-            err.response.data?.error || "You've reached your daily voice limit."
-          );
+          onQuotaExceeded?.(err.response.data?.error || "You've reached your daily voice limit.");
           return;
         }
 
         // Genuine "can't reach our own server" case - last-resort fallback.
-        if (window.speechSynthesis) {
+        if (generation === generationRef.current && window.speechSynthesis) {
           await new Promise<void>((resolve) => {
             const utterance = new SpeechSynthesisUtterance(spokenText);
             utterance.lang = "en-US";
@@ -90,10 +111,12 @@ export function useVoicePlayback({ onQuotaExceeded }: UseVoicePlaybackOptions = 
             window.speechSynthesis.speak(utterance);
           });
         }
+      } finally {
+        if (generation === generationRef.current) setIsSpeaking(false);
       }
     },
-    [voiceName, voiceMode, onQuotaExceeded]
+    [voiceName, voiceMode, onQuotaExceeded, stop]
   );
 
-  return { speak };
+  return { speak, stop, isSpeaking };
 }

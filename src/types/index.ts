@@ -39,7 +39,15 @@ export interface LessonSummary {
   duration_minutes: number;
   exercise_count: number;
   max_score: number;
+  // CEFR band this lesson targets, set by the Adaptive Assessment Engine's
+  // counterpart tag in the admin editor. null = untagged, meaning the
+  // lesson is open to every learner regardless of their measured level.
+  cefr_level: string | null;
+  // Position in the curriculum; drives what is offered after this lesson.
+  sequence: number | null;
   is_locked: boolean;
+  is_completed: boolean;
+  score: number;
   locked_reason: string | null;
 }
 
@@ -198,6 +206,10 @@ export interface Profile {
   preferred_voice: string;
   timezone: string;
   onboarding_completed: boolean;
+  // Set by the Adaptive Assessment Engine, null until the first
+  // assessment completes - LearnerLayout uses this to gate the
+  // dashboard behind /assessment, same as onboarding_completed.
+  cefr_level: string | null;
   total_exercises_completed: number;
   total_sessions: number;
   total_learning_hours: number;
@@ -232,6 +244,28 @@ export interface PronunciationResult {
     feedback: string;
     transcribe: string;
   };
+  /** Per-word IPA: what the sound should have been vs what was heard.
+   * The diagnostic part - the scorer always computed it, the page used
+   * to show only an aggregate percentage. */
+  word_detail: { word: string; expected: string; heard: string; ok: boolean }[];
+  /** OpenPronounce's own feedback, kept for debugging. It contradicts
+   * its own score when word alignment fails, so `feedback` above is
+   * computed instead - see domain/models/pronunciation_report.py. */
+  raw_feedback?: string;
+  /** The sound to practise next, from the phoneme-level diff. */
+  weak_sound: { sound: string; expected: string; heard: string; occurrences: number; words: string[] } | null;
+  phoneme_errors: { expected: string; heard: string; word: string; kind: string }[];
+  /** Present when the attempt came from a session part. `not_measured`
+   * names the dimensions nothing evaluated - stress and intonation - so
+   * the UI can never show a score the engine did not produce. */
+  part_result: {
+    phoneme_accuracy: number;
+    passed: boolean;
+    threshold: number;
+    measures: string[];
+    not_measured: string[];
+  } | null;
+  audio?: { trimmed: boolean; original_seconds: number; trimmed_seconds: number; removed_seconds: number };
 }
 
 // --- Subscription (see web/subscription_routes.py) ---------------------
@@ -286,4 +320,52 @@ export interface Invoice {
   status: InvoiceStatus;
   issued_at: string;
   paid_at: string | null;
+}
+
+// --- Adaptive Assessment Engine (see web/assessment_routes.py) --------
+
+// Mirrors infrastructure/voice/acoustic_features.py's AcousticFeatures.
+export interface AcousticFeatures {
+  pitch_hz: number | null;
+  pace_wpm: number | null;
+  pause_count: number;
+  pause_ratio: number;
+  voiced_ratio: number;
+  confidence: number;
+}
+
+export interface AssessmentTurn {
+  role: "assistant" | "user";
+  text: string;
+}
+
+export interface AssessmentSessionState {
+  id: string;
+  status: "in_progress" | "completed" | "abandoned";
+  transcript: AssessmentTurn[];
+  started_at: string;
+  last_activity_at: string;
+}
+
+export interface DimensionScore {
+  score: number | null; // null only for pronunciation when not assessed
+  evidence: string;
+}
+
+export interface AssessmentResult {
+  cefr_level: string;
+  vocabulary: DimensionScore;
+  sentence_complexity: DimensionScore;
+  grammar_accuracy: DimensionScore;
+  fluency_hesitation: DimensionScore;
+  pronunciation: DimensionScore;
+  low_confidence: boolean;
+  capped_at_max: boolean;
+}
+
+export interface AssessmentRespondResponse {
+  session_id: string;
+  reply: string;
+  completed: boolean;
+  result: AssessmentResult | null;
 }

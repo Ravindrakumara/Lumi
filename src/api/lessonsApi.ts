@@ -6,15 +6,31 @@ export interface StartLessonResponse {
   exercise: Exercise | null;
 }
 
+export interface NextLesson {
+  id: string;
+  title: string;
+  description: string;
+  cefr_level: string | null;
+  topic: string;
+  exercise_count: number;
+  duration_minutes: number;
+}
+
 export interface SubmitExerciseResponse {
   result: ExerciseResult;
   progress: LessonProgress;
   next_exercise: Exercise | null;
+  // Present only once this lesson is finished: the next unlocked lesson in
+  // curriculum order, so the learner continues from here instead of going
+  // back to the catalogue to find their place.
+  next_lesson: NextLesson | null;
 }
 
 export const lessonsApi = {
-  list: (level = ""): Promise<LessonSummary[]> =>
-    client.get("/lessons", { params: level ? { level } : {} }).then((r) => r.data.lessons),
+  // Browsed by CEFR band, not by program: the learner is placed on a
+  // band by the assessment, and that is what the lessons are tagged with.
+  list: (cefr = ""): Promise<LessonSummary[]> =>
+    client.get("/lessons", { params: cefr ? { cefr } : {} }).then((r) => r.data.lessons),
 
   detail: (lessonId: string): Promise<LessonDetail> =>
     client.get(`/lessons/${lessonId}`).then((r) => r.data.lesson),
