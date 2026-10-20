@@ -3,7 +3,6 @@ import { isAxiosError } from "axios";
 import { useEffect, useRef } from "react";
 import { chatApi } from "../api/chatApi";
 import { useChatStore } from "../store/chatStore";
-import { useSettingsStore } from "../store/settingsStore";
 import { useVoicePlayback } from "./useVoicePlayback";
 
 interface UseChatSessionOptions {

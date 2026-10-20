@@ -5,7 +5,6 @@ import { chatApi } from "../../api/chatApi";
 import Button from "../../components/atoms/Button";
 import Input from "../../components/atoms/Input";
 import ChatBubble from "../../components/molecules/ChatBubble";
-import { useSettingsStore } from "../../store/settingsStore";
 
 interface Message {
   role: "user" | "assistant";
